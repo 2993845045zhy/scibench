@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
   ClipboardCopyIcon,
@@ -11,9 +11,17 @@ import {
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { cn } from "@/components/lib/utils.js";
+import type { IDisposable } from "@zcode/rpc";
 import type { FileEntry } from "@zcode/shared";
 import type { PdfViewerLabels, PdfViewerSource } from "@/components/ui/pdf-viewer.js";
 
@@ -52,6 +60,68 @@ function fileExtension(name: string): string {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 }
 
+interface WatcherServiceLike {
+  watch(params: { path: string; recursive?: boolean }): Promise<{ id: string }>;
+  unwatch(params: { id: string }): Promise<void>;
+  onDynamicChange(id: string): (listener: (event: unknown) => void) => IDisposable;
+}
+
+/**
+ * 目录变更监听：agent 在对话侧改文件（编译出 PDF、写 meta.md、重生成图）时，
+ * 工作台对应子页自动刷新，用户零操作。watch 失败静默降级为手动刷新。
+ */
+function useDirChangeWatcher(
+  dirPath: string,
+  watcher: WatcherServiceLike | undefined,
+  onChange: () => void,
+) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    if (!watcher) return undefined;
+    let cancelled = false;
+    let watcherId: string | null = null;
+    const disposables: IDisposable[] = [];
+    let timer: number | null = null;
+
+    watcher
+      .watch({ path: dirPath })
+      .then(({ id }) => {
+        if (cancelled) {
+          void watcher.unwatch({ id });
+          return;
+        }
+        watcherId = id;
+        // 编译/重生成会连续写多个文件：600ms 防抖合并为一轮刷新。
+        const sub = watcher.onDynamicChange(id)(() => {
+          if (timer !== null) window.clearTimeout(timer);
+          timer = window.setTimeout(() => {
+            timer = null;
+            onChangeRef.current();
+          }, 600);
+        });
+        disposables.push(sub);
+      })
+      .catch(() => {
+        // 监视失败不影响只读展示，用户仍可手动刷新。
+      });
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+      for (const disposable of disposables) disposable.dispose();
+      if (watcherId) void watcher.unwatch({ id: watcherId });
+    };
+  }, [watcher, dirPath]);
+}
+
+function pickDefaultTex(files: readonly string[]): string | null {
+  if (files.length === 0) return null;
+  if (files.includes("paper/main.tex")) return "paper/main.tex";
+  return files.find((file) => file.startsWith("paper/")) ?? files[0]!;
+}
+
 /**
  * 科研工作台（ClawsGO 形态：顶栏 + 左侧导航 + 大内容区；视觉沿用 ZCode 设计系统）。
  * 作为右侧面板渲染：与对话同屏共写；onBack 仅在整页嵌入时提供，面板形态不渲染返回按钮。
@@ -68,7 +138,11 @@ export function ResearchWorkbench({
   onBack?: () => void;
 }) {
   const { intl } = useZCodeIntl();
-  const { fileService } = useWorkspaceServices(workspacePath, remoteSessionId, workspaceIdentity);
+  const { fileService, fileWatcherService } = useWorkspaceServices(
+    workspacePath,
+    remoteSessionId,
+    workspaceIdentity,
+  );
   const [section, setSection] = useState<ResearchSection>("latex");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -145,6 +219,7 @@ export function ResearchWorkbench({
             <LatexWorkbench
               workspacePath={workspacePath}
               fileService={fileService}
+              watcher={fileWatcherService}
               onError={setError}
               copyPrompt={copyPrompt}
             />
@@ -152,6 +227,7 @@ export function ResearchWorkbench({
             <FiguresGallery
               workspacePath={workspacePath}
               fileService={fileService}
+              watcher={fileWatcherService}
               onError={setError}
               copyPrompt={copyPrompt}
             />
@@ -159,6 +235,7 @@ export function ResearchWorkbench({
             <ExperimentsList
               workspacePath={workspacePath}
               fileService={fileService}
+              watcher={fileWatcherService}
               onError={setError}
             />
           )}
@@ -193,26 +270,84 @@ type CopyPromptFn = (prompt: string, doneLabel: string) => Promise<void>;
 function LatexWorkbench({
   workspacePath,
   fileService,
+  watcher,
   onError,
   copyPrompt,
 }: {
   workspacePath: string;
   fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
   onError: (message: string | null) => void;
   copyPrompt: CopyPromptFn;
 }) {
   const { intl } = useZCodeIntl();
-  const [texRelPath, setTexRelPath] = useState("paper/main.tex");
+  const [texFiles, setTexFiles] = useState<string[]>([]);
+  const [discovered, setDiscovered] = useState(false);
+  const [texRelPath, setTexRelPath] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [sourceMissing, setSourceMissing] = useState(false);
   const [pdfSource, setPdfSource] = useState<PdfViewerSource | null>(null);
   const [pdfMissing, setPdfMissing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const texAbsPath = joinPath(workspacePath, texRelPath);
-  const pdfAbsPath = texAbsPath.replace(/\.tex$/, ".pdf");
+  const texAbsPath = texRelPath ? joinPath(workspacePath, texRelPath) : null;
+  const pdfAbsPath = texAbsPath ? texAbsPath.replace(/\.tex$/, ".pdf") : null;
+  const texDir = texAbsPath ? texAbsPath.slice(0, texAbsPath.lastIndexOf("/")) : workspacePath;
+
+  // 自动发现 .tex：paper/ 优先（含一层子目录），docs/ 次之，根目录兜底；paper 命中即止。
+  useEffect(() => {
+    let disposed = false;
+    void (async () => {
+      const found: string[] = [];
+      const roots: Array<{ rel: string; depth: number }> = [
+        { rel: "paper", depth: 1 },
+        { rel: "docs", depth: 1 },
+        { rel: ".", depth: 0 },
+      ];
+      for (const { rel, depth } of roots) {
+        const rootAbs = joinPath(workspacePath, rel);
+        let entries: FileEntry[];
+        try {
+          entries = await fileService.readdir({ path: rootAbs });
+        } catch {
+          continue;
+        }
+        for (const entry of entries) {
+          if (entry.type === "file" && fileExtension(entry.name) === "tex") {
+            found.push(rel === "." ? entry.name : `${rel}/${entry.name}`);
+          } else if (entry.type === "directory" && depth > 0) {
+            let subEntries: FileEntry[];
+            try {
+              subEntries = await fileService.readdir({ path: entry.path });
+            } catch {
+              continue;
+            }
+            for (const subEntry of subEntries) {
+              if (subEntry.type === "file" && fileExtension(subEntry.name) === "tex") {
+                found.push(`${rel}/${entry.name}/${subEntry.name}`);
+              }
+            }
+          }
+        }
+        if (found.length > 0 && rel === "paper") break;
+      }
+      if (disposed) return;
+      setTexFiles(found);
+      setDiscovered(true);
+      setTexRelPath((current) => current ?? pickDefaultTex(found));
+    })().catch(() => {
+      if (!disposed) setDiscovered(true);
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [workspacePath, fileService]);
+
+  // agent 在对话侧编译/改稿后，源码与 PDF 自动刷新。
+  useDirChangeWatcher(texDir, watcher, useCallback(() => setReloadKey((key) => key + 1), []));
 
   useEffect(() => {
+    if (!texAbsPath || !pdfAbsPath) return undefined;
     let disposed = false;
     onError(null);
     setSource(null);
@@ -283,16 +418,38 @@ function LatexWorkbench({
     loadError: intl.formatMessage({ id: "research.pdf.error" }),
   };
 
+  if (discovered && texFiles.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="max-w-md text-center text-ui-sm text-muted-foreground">
+          {intl.formatMessage({ id: "research.latex.noFiles" })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <Input
-          value={texRelPath}
-          onChange={(event) => setTexRelPath(event.target.value)}
-          className="h-8 w-72 text-ui-xs"
-          spellCheck={false}
-          aria-label={intl.formatMessage({ id: "research.latex.pathLabel" })}
-        />
+        <Select
+          value={texRelPath ?? undefined}
+          onValueChange={(value) => setTexRelPath(value)}
+        >
+          <SelectTrigger
+            size="lg"
+            className="w-72 text-ui-xs"
+            aria-label={intl.formatMessage({ id: "research.latex.pathLabel" })}
+          >
+            <SelectValue placeholder={intl.formatMessage({ id: "research.loading" })} />
+          </SelectTrigger>
+          <SelectContent>
+            {texFiles.map((file) => (
+              <SelectItem key={file} value={file} className="text-ui-xs">
+                {file}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           size="sm"
@@ -305,9 +462,13 @@ function LatexWorkbench({
         <Button
           size="sm"
           className="h-8 shrink-0 px-2.5 text-ui-xs"
+          disabled={!texRelPath}
           onClick={() =>
             void copyPrompt(
-              intl.formatMessage({ id: "research.latex.compilePrompt" }, { path: texRelPath }),
+              intl.formatMessage(
+                { id: "research.latex.compilePrompt" },
+                { path: texRelPath ?? "" },
+              ),
               intl.formatMessage({ id: "research.promptCopied" }),
             )
           }
@@ -316,7 +477,7 @@ function LatexWorkbench({
           {intl.formatMessage({ id: "research.latex.compile" })}
         </Button>
         <span className="ml-auto text-ui-xs text-muted-foreground">
-          {intl.formatMessage({ id: "research.latex.hint" })}
+          {intl.formatMessage({ id: "research.latex.autoHint" })}
         </span>
       </div>
       {/* 整页形态：源码与 PDF 左右并排（窄面板时代是上下堆叠） */}
@@ -333,7 +494,7 @@ function LatexWorkbench({
         </div>
         <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
-            <span>{pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath.split("/").pop()}</span>
+            <span>{pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath?.split("/").pop()}</span>
             <span className="ml-auto">{intl.formatMessage({ id: "research.pdf.preview" })}</span>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
@@ -372,11 +533,13 @@ interface FigureItem {
 function FiguresGallery({
   workspacePath,
   fileService,
+  watcher,
   onError,
   copyPrompt,
 }: {
   workspacePath: string;
   fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
   onError: (message: string | null) => void;
   copyPrompt: CopyPromptFn;
 }) {
@@ -386,6 +549,7 @@ function FiguresGallery({
   const [selected, setSelected] = useState<FigureItem | null>(null);
   const [comment, setComment] = useState("");
   const [scanned, setScanned] = useState(false);
+  const [watchedRoot, setWatchedRoot] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -429,7 +593,10 @@ function FiguresGallery({
             }
           }
         }
-        if (found.length > 0) break;
+        if (found.length > 0) {
+          setWatchedRoot(root);
+          break;
+        }
       }
       if (disposed) return;
       setFigures(found);
@@ -459,6 +626,13 @@ function FiguresGallery({
       disposed = true;
     };
   }, [workspacePath, fileService, reloadKey, onError]);
+
+  // agent 重生成图后自动重扫图墙。
+  useDirChangeWatcher(
+    watchedRoot ? joinPath(workspacePath, watchedRoot) : joinPath(workspacePath, "figures"),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
 
   const grouped = useMemo(() => {
     const groups = new Map<string, FigureItem[]>();
@@ -593,16 +767,25 @@ const VERDICT_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructi
 function ExperimentsList({
   workspacePath,
   fileService,
+  watcher,
   onError,
 }: {
   workspacePath: string;
   fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
   onError: (message: string | null) => void;
 }) {
   const { intl } = useZCodeIntl();
   const [cards, setCards] = useState<ExperimentCard[]>([]);
   const [scanned, setScanned] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // agent 写新 meta.md 后实验卡片自动出现。
+  useDirChangeWatcher(
+    joinPath(workspacePath, "experiments"),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
 
   useEffect(() => {
     let disposed = false;

@@ -6844,6 +6844,9 @@ const enUS: Record<string, string> = {
   "quickPick.command.research": "Open Research Workbench (LaTeX / Figures / Experiments)",
   "research.backToChat": "Back to chat",
   "research.latex.hint": "Compile hands the command to the chat; hit Reload when it finishes",
+  "research.latex.autoHint": "auto-refreshes on file changes",
+  "research.latex.noFiles":
+    "No .tex files found. Ask the agent in the chat to scaffold paper/ LaTeX files — they will show up here automatically",
 };
 
 export default enUS;

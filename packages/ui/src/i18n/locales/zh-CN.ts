@@ -6522,6 +6522,9 @@ const zhCN: Record<string, string> = {
   "quickPick.command.research": "打开科研工作台（LaTeX / 图表 / 实验）",
   "research.backToChat": "返回对话",
   "research.latex.hint": "「编译」生成指令交给对话执行，完成后点「刷新」",
+  "research.latex.autoHint": "文件变化自动刷新",
+  "research.latex.noFiles":
+    "没找到 .tex 文件。在左侧对话说「帮我在 paper/ 下生成论文 LaTeX 模板」，生成后这里会自动出现",
 };
 
 export default zhCN;
