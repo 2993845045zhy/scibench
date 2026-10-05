@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIcon,
   ArrowLeftIcon,
   BookOpenIcon,
   ChevronDownIcon,
@@ -15,6 +16,7 @@ import {
   ImageIcon,
   ListIcon,
   PackageIcon,
+  PlayIcon,
   RefreshCwIcon,
   XIcon,
 } from "lucide-react";
@@ -102,7 +104,14 @@ const CODE_LANGUAGE_BY_EXTENSION: Record<string, string> = {
   dockerfile: "dockerfile",
 };
 
-type ResearchSection = "latex" | "figures" | "experiments" | "code" | "literature" | "deliverables";
+type ResearchSection =
+  | "latex"
+  | "figures"
+  | "experiments"
+  | "bench"
+  | "code"
+  | "literature"
+  | "deliverables";
 
 const SECTIONS: Array<{
   id: ResearchSection;
@@ -112,10 +121,14 @@ const SECTIONS: Array<{
   { id: "latex", icon: FileTextIcon, labelId: "research.latex.tab" },
   { id: "figures", icon: ImageIcon, labelId: "research.figures.tab" },
   { id: "experiments", icon: ListIcon, labelId: "research.experiments.tab" },
+  { id: "bench", icon: ActivityIcon, labelId: "research.bench.tab" },
   { id: "code", icon: CodeIcon, labelId: "research.code.tab" },
   { id: "literature", icon: BookOpenIcon, labelId: "research.literature.tab" },
   { id: "deliverables", icon: PackageIcon, labelId: "research.deliverables.tab" },
 ];
+
+/** tests/ 下视为台架的脚本前缀；结果文档约定 docs/<stem>_result.md。 */
+const BENCH_FILE_PATTERN = /^(bench_|cmp_)/;
 
 function joinPath(base: string, rel: string): string {
   const cleanRel = rel.replace(/^\/+/, "");
@@ -466,7 +479,15 @@ export function ResearchWorkbench({
           </div>
         </div>
         <div className="min-h-0 min-w-0 flex-1">
-          {section === "code" ? (
+          {section === "bench" ? (
+            <BenchBoard
+              workspacePath={workspacePath}
+              fileService={fileService}
+              watcher={fileWatcherService}
+              onError={setError}
+              copyPrompt={copyPrompt}
+            />
+          ) : section === "code" ? (
             <PreviewPane
               source={previewSource}
               onClose={() => setPreviewSource(null)}
@@ -777,7 +798,9 @@ function OverlayFileViewer({
 
 interface FileServiceLike {
   readdir(params: { path: string; includeHidden?: boolean }): Promise<FileEntry[]>;
-  stat(params: { path: string }): Promise<{ size?: number }>;
+  stat(params: {
+    path: string;
+  }): Promise<{ type?: "file" | "directory"; size?: number; mtimeMs?: number }>;
   readTextFile(params: {
     path: string;
     offset?: number;
@@ -2278,6 +2301,354 @@ function DeliverablesCenter({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── 台架看板（tests/ 台架盘点 + 结果文档数据表可视化） ──
+
+interface BenchItem {
+  name: string;
+  absPath: string;
+  relPath: string;
+  summary: string | null;
+  resultRelPath: string | null;
+  resultMtimeMs: number | null;
+}
+
+/** 结果文档迷你渲染：标题 / 段落 / markdown 数据表（首行表头，跳过分隔行）。 */
+function renderBenchResult(content: string): React.ReactNode {
+  const nodes: React.ReactNode[] = [];
+  const lines = content.split("\n");
+  let index = 0;
+  let key = 0;
+  while (index < lines.length) {
+    const line = lines[index]!;
+    if (line.trim().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (index < lines.length && lines[index]!.trim().startsWith("|")) {
+        tableLines.push(lines[index]!.trim());
+        index += 1;
+      }
+      const rows = tableLines
+        .map((rowLine) =>
+          rowLine
+            .split("|")
+            .slice(1, -1)
+            .map((cell) => cell.trim()),
+        )
+        .filter((cells) => !cells.every((cell) => /^:?-{2,}:?$/.test(cell) || cell === ""));
+      if (rows.length > 0) {
+        nodes.push(
+          <div key={key++} className="my-3 overflow-x-auto rounded-lg border border-card-border">
+            <table className="w-full border-collapse text-ui-xs">
+              <thead>
+                <tr className="bg-hover/40">
+                  {rows[0]!.map((cell, cellIndex) => (
+                    <th
+                      key={cellIndex}
+                      className="border-b border-card-border px-2.5 py-1.5 text-left font-medium text-foreground-subtle"
+                    >
+                      {cell}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(1).map((cells, rowIndex) => (
+                  <tr key={rowIndex} className="odd:bg-hover/15">
+                    {cells.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="border-b border-card-border/60 px-2.5 py-1.5">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+        );
+      }
+      continue;
+    }
+    const headingMatch = line.match(/^(#{1,4})\s+(.*)$/);
+    if (headingMatch) {
+      nodes.push(
+        <div
+          key={key++}
+          className={cn(
+            "mt-4 mb-1 font-medium text-foreground",
+            headingMatch[1]!.length <= 2 ? "text-ui-base" : "text-ui-sm",
+          )}
+        >
+          {headingMatch[2]}
+        </div>,
+      );
+      index += 1;
+      continue;
+    }
+    if (line.trim() === "") {
+      index += 1;
+      continue;
+    }
+    const paragraphLines: string[] = [];
+    while (
+      index < lines.length &&
+      lines[index]!.trim() !== "" &&
+      !lines[index]!.trim().startsWith("|") &&
+      !lines[index]!.match(/^#{1,4}\s+/)
+    ) {
+      paragraphLines.push(lines[index]!);
+      index += 1;
+    }
+    nodes.push(
+      <p key={key++} className="my-1.5 text-ui-xs leading-relaxed text-foreground-subtle">
+        {paragraphLines.join(" ")}
+      </p>,
+    );
+  }
+  return nodes;
+}
+
+function BenchBoard({
+  workspacePath,
+  fileService,
+  watcher,
+  onError,
+  copyPrompt,
+}: {
+  workspacePath: string;
+  fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
+  onError: (message: string | null) => void;
+  copyPrompt: CopyPromptFn;
+}) {
+  const { intl } = useZCodeIntl();
+  const [benches, setBenches] = useState<BenchItem[]>([]);
+  const [scanned, setScanned] = useState(false);
+  const [selected, setSelected] = useState<BenchItem | null>(null);
+  const [resultContent, setResultContent] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useDirChangeWatcher(
+    joinPath(workspacePath, "tests"),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
+  useDirChangeWatcher(
+    joinPath(workspacePath, "docs"),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    onError(null);
+    setBenches([]);
+    setSelected(null);
+    setResultContent(null);
+    setScanned(false);
+
+    void (async () => {
+      let entries: FileEntry[];
+      try {
+        entries = await fileService.readdir({ path: joinPath(workspacePath, "tests") });
+      } catch {
+        if (!disposed) setScanned(true);
+        return;
+      }
+      const loaded: BenchItem[] = [];
+      for (const entry of entries) {
+        if (entry.type !== "file" || !BENCH_FILE_PATTERN.test(entry.name)) continue;
+        const stem = entry.name.replace(/\.py$/, "");
+        const resultRelPath = `docs/${stem}_result.md`;
+        let summary: string | null = null;
+        try {
+          const head = await fileService.readTextFile({ path: entry.path, length: 4096 });
+          if (disposed) return;
+          const docMatch = head.content.match(/"""([\s\S]*?)"""/);
+          if (docMatch) {
+            summary =
+              docMatch[1]!
+                .split("\n")
+                .map((line) => line.trim())
+                .find((line) => line.length > 0) ?? null;
+          }
+        } catch {
+          // 读不到说明就不显示。
+        }
+        let resultMtimeMs: number | null = null;
+        let resultExists = false;
+        try {
+          const stat = await fileService.stat({ path: joinPath(workspacePath, resultRelPath) });
+          if (!disposed) {
+            resultExists = stat.type === "file";
+            resultMtimeMs = stat.mtimeMs ?? null;
+          }
+        } catch {
+          // 无结果文档。
+        }
+        loaded.push({
+          name: entry.name,
+          absPath: entry.path,
+          relPath: `tests/${entry.name}`,
+          summary,
+          resultRelPath: resultExists ? resultRelPath : null,
+          resultMtimeMs: resultExists ? resultMtimeMs : null,
+        });
+      }
+      loaded.sort((left, right) => {
+        if ((left.resultMtimeMs ?? 0) !== (right.resultMtimeMs ?? 0)) {
+          return (right.resultMtimeMs ?? 0) - (left.resultMtimeMs ?? 0);
+        }
+        return left.name.localeCompare(right.name);
+      });
+      if (disposed) return;
+      setBenches(loaded);
+      setScanned(true);
+    })().catch((scanError: unknown) => {
+      if (!disposed) onError(scanError instanceof Error ? scanError.message : String(scanError));
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [workspacePath, fileService, reloadKey, onError]);
+
+  // 选中台架后加载其结果文档。
+  useEffect(() => {
+    let disposed = false;
+    setResultContent(null);
+    if (!selected?.resultRelPath) return undefined;
+    void (async () => {
+      try {
+        const text = await fileService.readTextFile({
+          path: joinPath(workspacePath, selected.resultRelPath!),
+          length: 512 * 1024,
+        });
+        if (!disposed) setResultContent(text.content);
+      } catch {
+        if (!disposed) setResultContent(null);
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, [selected, workspacePath, fileService]);
+
+  const runPromptFor = (bench: BenchItem) =>
+    intl.formatMessage({ id: "research.bench.runPrompt" }, { path: bench.relPath });
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-2 px-4 py-2.5">
+        <span className="text-ui-xs text-foreground-subtle">
+          {intl.formatMessage({ id: "research.bench.count" }, { count: benches.length })}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-8 px-2.5 text-ui-xs"
+          onClick={() => setReloadKey((key) => key + 1)}
+        >
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
+          {intl.formatMessage({ id: "research.bench.rescan" })}
+        </Button>
+      </div>
+      {selected ? (
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <ActivityIcon className="size-4 shrink-0 text-primary" strokeWidth={1.33} />
+            <span className="truncate text-ui-base font-medium" title={selected.relPath}>
+              {selected.name}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto h-7 shrink-0 text-ui-xs"
+              onClick={() => setSelected(null)}
+            >
+              {intl.formatMessage({ id: "research.figures.back" })}
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 shrink-0 text-ui-xs"
+              onClick={() =>
+                void copyPrompt(
+                  runPromptFor(selected),
+                  intl.formatMessage({ id: "research.promptCopied" }),
+                )
+              }
+            >
+              <PlayIcon className="size-3.5" strokeWidth={1.33} />
+              {intl.formatMessage({ id: "research.bench.run" })}
+            </Button>
+          </div>
+          {selected.summary ? (
+            <div className="mt-1 truncate text-ui-xs text-foreground-subtlest" title={selected.summary}>
+              {selected.summary}
+            </div>
+          ) : null}
+          <div className="mt-2 min-h-0 flex-1 overflow-auto rounded-[10px] border border-card-border bg-card px-3.5 py-3">
+            {selected.resultRelPath == null ? (
+              <div className="p-3 text-ui-xs text-foreground-subtlest">
+                {intl.formatMessage({ id: "research.bench.noResult" })}
+              </div>
+            ) : resultContent != null ? (
+              renderBenchResult(resultContent)
+            ) : (
+              <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+                <Spinner className="size-3.5" />
+                {intl.formatMessage({ id: "research.loading" })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
+          <div className="mx-auto w-full max-w-3xl">
+            {benches.map((bench) => (
+              <button
+                key={bench.absPath}
+                type="button"
+                className="mb-2 flex w-full items-start gap-3 rounded-[10px] border border-card-border bg-card px-3 py-3 text-left transition-colors hover:border-primary/50"
+                onClick={() => setSelected(bench)}
+              >
+                <ActivityIcon
+                  className={cn(
+                    "mt-0.5 size-4 shrink-0",
+                    bench.resultRelPath ? "text-primary" : "text-foreground-subtlest",
+                  )}
+                  strokeWidth={1.33}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-ui-sm font-medium">{bench.name}</span>
+                    {bench.resultMtimeMs ? (
+                      <span className="ml-auto shrink-0 text-ui-xs text-foreground-subtlest">
+                        {intl.formatMessage(
+                          { id: "research.bench.resultAt" },
+                          { time: new Date(bench.resultMtimeMs).toLocaleString() },
+                        )}
+                      </span>
+                    ) : null}
+                  </div>
+                  {bench.summary ? (
+                    <div className="mt-0.5 line-clamp-2 text-ui-xs text-foreground-subtle">
+                      {bench.summary}
+                    </div>
+                  ) : null}
+                </div>
+              </button>
+            ))}
+            {scanned && benches.length === 0 ? (
+              <div className="p-3 text-ui-xs text-foreground-subtlest">
+                {intl.formatMessage({ id: "research.bench.empty" })}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

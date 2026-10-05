@@ -6852,6 +6852,16 @@ const enUS: Record<string, string> = {
   "research.viewer.unsupported": "File too large or preview unsupported",
   "research.code.unsupported": "Binary or oversized file — not previewed here",
   "research.code.tab": "Code",
+  "research.bench.tab": "Benches",
+  "research.bench.count": "{count} test benches",
+  "research.bench.rescan": "Rescan",
+  "research.bench.run": "Run bench",
+  "research.bench.runPrompt":
+    "Run the test bench {path} (with ~/anaconda3/envs/ros2ws/bin/python; state the config first). Write results back to the matching docs/*_result.md in the original format (create if missing), and record an exp-log evidence card under experiments/ with an honest verdict (keep NEGATIVE).",
+  "research.bench.noResult":
+    "No result doc yet — hit Run bench to hand it to the agent; tables appear here automatically.",
+  "research.bench.resultAt": "updated {time}",
+  "research.bench.empty": "No bench_/cmp_ scripts under tests/",
   "research.code.empty":
     "Click a code file (.py/.cpp/.yaml …) in the file tree below to open it; × closes the current file",
   "research.synctex.ready": "SyncTeX on: click a source line to jump pages, click the PDF to jump lines",
