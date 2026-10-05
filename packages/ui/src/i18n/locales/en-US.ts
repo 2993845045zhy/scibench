@@ -6913,6 +6913,7 @@ const enUS: Record<string, string> = {
     "No deliverables yet — outputs of /peer-review, /submit and /lit-review will appear here",
   "research.deliverables.pathCopied": "Path copied",
   "research.deliverables.pathCopiedHint": "Click to copy path",
+  "research.deliverables.preview": "Preview",
   "research.deliverables.paper": "Paper",
   "research.deliverables.zipInfo":
     "ZIP submission package ({size} MB) — copy the path and ask the agent to unpack",

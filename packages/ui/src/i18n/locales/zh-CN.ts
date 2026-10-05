@@ -6586,6 +6586,7 @@ const zhCN: Record<string, string> = {
     "还没有交付物——评审（/peer-review）、投稿（/submit）、文献调研（/lit-review）的产物会出现在这里",
   "research.deliverables.pathCopied": "路径已复制",
   "research.deliverables.pathCopiedHint": "点击复制路径",
+  "research.deliverables.preview": "预览",
   "research.deliverables.paper": "论文",
   "research.deliverables.zipInfo": "ZIP 投稿包（{size} MB）——点行内复制按钮拿路径，让 agent 解包",
   "research.overview.tab": "总览",

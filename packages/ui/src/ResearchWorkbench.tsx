@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   CircleIcon,
   ClipboardCopyIcon,
+  ClipboardListIcon,
   CodeIcon,
   EraserIcon,
   EyeIcon,
@@ -19,12 +20,15 @@ import {
   HistoryIcon,
   ImageIcon,
   LayoutDashboardIcon,
+  ListChecksIcon,
   ListIcon,
   LoaderIcon,
+  MessageSquareIcon,
   PackageIcon,
   PlayIcon,
   RefreshCwIcon,
   RocketIcon,
+  SendIcon,
   TriangleAlertIcon,
   WorkflowIcon,
   XIcon,
@@ -46,6 +50,10 @@ import {
 } from "@/components/ui/resizable.js";
 import { CodeViewer, findCodeViewerLineElement } from "@/components/ui/code-viewer.js";
 import { Progress } from "@/components/ui/progress.js";
+import {
+  SettingsResourceGroupHeader,
+  SettingsResourceList,
+} from "@/settings/SettingsResourceGroup.js";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible.js";
 import { Spinner } from "@/components/ui/spinner.js";
 import { PreviewPane } from "@/PreviewPane.js";
@@ -158,6 +166,7 @@ const PROGRESS_DIR = ".research/progress";
 interface ChainActionDef {
   id: string;
   command: string;
+  icon: typeof FileTextIcon;
   titleId: string;
   descId: string;
   /** 需要用户补一个参数（主题/路径/关键字）；optional = 可留空。 */
@@ -168,6 +177,7 @@ const CHAIN_ACTIONS: ChainActionDef[] = [
   {
     id: "paper-flow",
     command: "/paper-flow",
+    icon: WorkflowIcon,
     titleId: "research.actions.paperFlow",
     descId: "research.actions.paperFlowDesc",
     arg: { placeholderId: "research.actions.paperFlowArg" },
@@ -175,6 +185,7 @@ const CHAIN_ACTIONS: ChainActionDef[] = [
   {
     id: "lit-review",
     command: "/lit-review",
+    icon: BookOpenIcon,
     titleId: "research.actions.litReview",
     descId: "research.actions.litReviewDesc",
     arg: { placeholderId: "research.actions.litReviewArg" },
@@ -182,6 +193,7 @@ const CHAIN_ACTIONS: ChainActionDef[] = [
   {
     id: "reproduce",
     command: "/reproduce",
+    icon: FileTextIcon,
     titleId: "research.actions.reproduce",
     descId: "research.actions.reproduceDesc",
     arg: { placeholderId: "research.actions.reproduceArg", required: true },
@@ -189,24 +201,28 @@ const CHAIN_ACTIONS: ChainActionDef[] = [
   {
     id: "verify",
     command: "/verify",
+    icon: ListChecksIcon,
     titleId: "research.actions.verify",
     descId: "research.actions.verifyDesc",
   },
   {
     id: "peer-review",
     command: "/peer-review",
+    icon: MessageSquareIcon,
     titleId: "research.actions.peerReview",
     descId: "research.actions.peerReviewDesc",
   },
   {
     id: "submit",
     command: "/submit",
+    icon: SendIcon,
     titleId: "research.actions.submit",
     descId: "research.actions.submitDesc",
   },
   {
     id: "bench-all",
     command: "/bench-all",
+    icon: ActivityIcon,
     titleId: "research.actions.benchAll",
     descId: "research.actions.benchAllDesc",
     arg: { placeholderId: "research.actions.benchAllArg" },
@@ -214,6 +230,7 @@ const CHAIN_ACTIONS: ChainActionDef[] = [
   {
     id: "report",
     command: "/report",
+    icon: ClipboardListIcon,
     titleId: "research.actions.report",
     descId: "research.actions.reportDesc",
   },
@@ -597,6 +614,7 @@ export function ResearchWorkbench({
         <div className="min-h-0 min-w-0 flex-1">
           {section === "overview" ? (
             <OverviewPane
+              workspacePath={workspacePath}
               activeTaskId={activeTaskId}
               activePlan={activePlan}
               launcher={launcher}
@@ -689,6 +707,7 @@ export function ResearchWorkbench({
 // ── 总览页（操作台：链路命令按钮化 + 当前进度摘要 + 快捷入口） ──
 
 function OverviewPane({
+  workspacePath,
   activeTaskId,
   activePlan,
   launcher,
@@ -696,6 +715,7 @@ function OverviewPane({
   onToast,
   onError,
 }: {
+  workspacePath: string;
   activeTaskId: string | null;
   activePlan: ReturnType<typeof useActiveTaskPlan>;
   launcher: UseResearchCommandLauncherResult;
@@ -705,6 +725,10 @@ function OverviewPane({
 }) {
   const { intl } = useZCodeIntl();
   const [args, setArgs] = useState<Record<string, string>>({});
+  // 展开参数输入区的动作 id；无参动作点击即跑，不展开。
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const projectName = workspacePath.split("/").filter(Boolean).pop() ?? workspacePath;
 
   const runChain = useCallback(
     (action: ChainActionDef) => {
@@ -717,6 +741,7 @@ function OverviewPane({
       void launcher.run(text).then((result) => {
         if (result.ok) {
           onError(null);
+          setExpandedId(null);
           onToast(
             activeTaskId
               ? intl.formatMessage({ id: "research.actions.sentToSession" })
@@ -736,49 +761,26 @@ function OverviewPane({
     [activeTaskId, args, intl, launcher, onError, onToast],
   );
 
+  const handleActionClick = useCallback(
+    (action: ChainActionDef) => {
+      if (action.arg) {
+        setExpandedId((current) => (current === action.id ? null : (action.id ?? null)));
+      } else {
+        runChain(action);
+      }
+    },
+    [runChain],
+  );
+
   const planItems = activePlan.plan?.items ?? [];
   const planCompleted = planItems.filter((item) => item.status === "completed").length;
   const planCurrent = planItems.find((item) => item.status === "inProgress") ?? null;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
-      <div className="mx-auto w-full max-w-4xl">
-        {/* 当前进度摘要：跑链路时一眼看到走到第几步，点开进进度页。 */}
-        {planItems.length > 0 ? (
-          <button
-            type="button"
-            className="mb-5 flex w-full flex-col gap-2 rounded-xl border border-card-border bg-background p-3 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
-            onClick={() => onNavigate("progress")}
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-ui-base font-medium leading-5 text-foreground">
-                {intl.formatMessage({ id: "research.progress.liveTitle" })}
-              </span>
-              <span
-                className={cn(
-                  "text-ui-base tabular-nums",
-                  planCompleted >= planItems.length
-                    ? "text-success"
-                    : "text-foreground-subtle",
-                )}
-              >
-                {planCompleted}/{planItems.length}
-              </span>
-            </div>
-            <Progress
-              value={Math.round((planCompleted / planItems.length) * 100)}
-              className="h-1"
-            />
-            <span className="truncate text-ui-base font-normal leading-5 text-foreground-subtle">
-              {planCurrent?.content ?? planItems[planItems.length - 1]!.content}
-            </span>
-          </button>
-        ) : null}
-
-        <h2 className="mb-1 text-ui-base font-medium leading-5 text-foreground-subtle">
-          {intl.formatMessage({ id: "research.actions.title" })}
-        </h2>
-        <p className="mb-3 text-ui-base font-normal leading-5 text-foreground-subtlest">
+    <div className="min-h-0 flex-1 overflow-auto px-6 pb-8 pt-5">
+      <div className="mx-auto w-full max-w-3xl">
+        <h1 className="text-ui-xl font-semibold text-foreground">{projectName}</h1>
+        <p className="mt-1 text-ui-sm text-foreground-subtle">
           {intl.formatMessage(
             { id: "research.actions.hint" },
             {
@@ -788,107 +790,156 @@ function OverviewPane({
             },
           )}
         </p>
+
+        {/* 进行中的链路/步骤横幅（官方 KeepAwakeNotice 同款 bg-surface 圆角条）。 */}
+        {planItems.length > 0 ? (
+          <button
+            type="button"
+            className="mt-4 flex w-full min-h-11 items-center gap-3 overflow-hidden rounded-[10px] bg-surface px-3 py-2.5 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
+            onClick={() => onNavigate("progress")}
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center" aria-hidden>
+              <ArrowRightIcon className="size-4 text-foreground" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className="text-ui-base font-medium leading-5 text-foreground">
+                  {intl.formatMessage({ id: "research.progress.liveTitle" })}
+                </span>
+                <span
+                  className={cn(
+                    "text-ui-sm tabular-nums",
+                    planCompleted >= planItems.length
+                      ? "text-success"
+                      : "text-foreground-subtle",
+                  )}
+                >
+                  {planCompleted}/{planItems.length}
+                </span>
+              </span>
+              <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
+                {planCurrent?.content ?? planItems[planItems.length - 1]!.content}
+              </span>
+            </span>
+            <ChevronRightIcon
+              className="size-4 shrink-0 text-foreground-subtlest"
+              aria-hidden
+            />
+          </button>
+        ) : null}
+
         {launcher.error ? (
-          <div className="mb-3 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-ui-base text-destructive">
-            <TriangleAlertIcon className="size-4 shrink-0" strokeWidth={1.33} aria-hidden />
-            {intl.formatMessage(
-              { id: "research.actions.launchFailed" },
-              { reason: launcher.error.code },
-            )}
+          <div
+            role="alert"
+            className="mt-4 flex items-center gap-2 rounded-[10px] bg-surface px-3 py-3 text-ui-base leading-5 text-destructive"
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center" aria-hidden>
+              <TriangleAlertIcon className="size-4" strokeWidth={1.33} />
+            </span>
+            <p className="min-w-0 flex-1">
+              {intl.formatMessage(
+                { id: "research.actions.launchFailed" },
+                { reason: launcher.error.code },
+              )}
+            </p>
           </div>
         ) : null}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {CHAIN_ACTIONS.map((action) => (
-            <ChainActionCard
-              key={action.id}
-              action={action}
-              argValue={args[action.id] ?? ""}
-              pending={launcher.pending}
-              onArgChange={(value) =>
-                setArgs((current) => ({ ...current, [action.id]: value }))
-              }
-              onRun={() => runChain(action)}
-            />
-          ))}
-        </div>
 
-        <h2 className="mt-5 mb-2 text-ui-base font-medium leading-5 text-foreground-subtle">
-          {intl.formatMessage({ id: "research.actions.quickLinks" })}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-ui-sm"
-            onClick={() => onNavigate("latex")}
-          >
-            <FileTextIcon className="size-3.5" strokeWidth={1.33} />
-            {intl.formatMessage({ id: "research.actions.openLatex" })}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-ui-sm"
-            onClick={() => onNavigate("bench")}
-          >
-            <ActivityIcon className="size-3.5" strokeWidth={1.33} />
-            {intl.formatMessage({ id: "research.actions.openBench" })}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-ui-sm"
-            onClick={() => onNavigate("figures")}
-          >
-            <ImageIcon className="size-3.5" strokeWidth={1.33} />
-            {intl.formatMessage({ id: "research.actions.openFigures" })}
-          </Button>
+        <div className="mt-6">
+          <SettingsResourceGroupHeader
+            title={intl.formatMessage({ id: "research.actions.title" })}
+            count={CHAIN_ACTIONS.length}
+          />
+          <SettingsResourceList
+            items={CHAIN_ACTIONS}
+            getKey={(action) => action.id}
+            renderItem={(action) => (
+              <ChainActionRow
+                action={action}
+                argValue={args[action.id] ?? ""}
+                expanded={expandedId === action.id}
+                pending={launcher.pending}
+                onArgChange={(value) =>
+                  setArgs((current) => ({ ...current, [action.id]: value }))
+                }
+                onToggle={() => handleActionClick(action)}
+                onRun={() => runChain(action)}
+              />
+            )}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function ChainActionCard({
-  action: { command, titleId, descId, arg },
+/**
+ * 操作台行：官方设置资源行同构（size-9 图标块 + 标题/描述 + 右侧徽章）。
+ * 无参动作整行点击即运行；带参动作点击展开行内参数区（Input + 运行按钮）。
+ */
+function ChainActionRow({
+  action,
   argValue,
+  expanded,
   pending,
   onArgChange,
+  onToggle,
   onRun,
 }: {
   action: ChainActionDef;
   argValue: string;
+  expanded: boolean;
   pending: boolean;
   onArgChange: (value: string) => void;
+  onToggle: () => void;
   onRun: () => void;
 }) {
   const { intl } = useZCodeIntl();
-  const title = intl.formatMessage({ id: titleId });
+  const title = intl.formatMessage({ id: action.titleId });
+  const ActionIcon = action.icon;
   return (
-    // 卡片骨架对齐官方自动化/模板卡：rounded-xl + border-card-border + bg-background + hover:bg-hover。
-    <div className="flex h-full flex-col gap-2 rounded-xl border border-card-border bg-background p-3 text-left">
-      <div className="flex min-w-0 items-center gap-2">
-        <RocketIcon
-          className="size-4 shrink-0 text-foreground-subtle"
-          strokeWidth={1.33}
-          aria-hidden
-        />
-        <span className="min-w-0 truncate text-ui-base font-medium leading-5 text-foreground">
-          {title}
+    <div>
+      <button
+        type="button"
+        aria-expanded={action.arg ? expanded : undefined}
+        className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-input-border-focused"
+        onClick={onToggle}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-foreground-subtle">
+          <ActionIcon className="size-4" strokeWidth={1.33} aria-hidden />
         </span>
-        <span className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 text-ui-base font-normal text-foreground-subtle">
-          {command}
+        <span className="min-w-0">
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="truncate text-ui-base font-medium text-foreground">{title}</span>
+            <span className="inline-flex min-h-5 shrink-0 items-center rounded-md bg-background px-1.5 py-0.5 text-ui-sm text-foreground-subtle ring-1 ring-border">
+              {action.command}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
+            {intl.formatMessage({ id: action.descId })}
+          </span>
         </span>
-      </div>
-      <p className="text-wrap-phrase line-clamp-2 text-ui-base font-normal leading-5 text-foreground-subtle">
-        {intl.formatMessage({ id: descId })}
-      </p>
-      <div className="mt-auto flex items-center gap-2">
-        {arg ? (
+        <span className="flex shrink-0 items-center gap-1.5">
+          {action.arg ? (
+            <ChevronDownIcon
+              className={cn(
+                "size-4 text-foreground-subtlest transition-transform",
+                expanded && "rotate-180",
+              )}
+              strokeWidth={1.33}
+              aria-hidden
+            />
+          ) : (
+            <PlayIcon className="size-4 text-foreground-subtlest" strokeWidth={1.33} aria-hidden />
+          )}
+        </span>
+      </button>
+      {action.arg && expanded ? (
+        <div className="flex items-center gap-2 px-4 pb-3 pl-16">
           <Input
             value={argValue}
             onChange={(event) => onArgChange(event.target.value)}
-            placeholder={intl.formatMessage({ id: arg.placeholderId })}
+            placeholder={intl.formatMessage({ id: action.arg.placeholderId })}
             className="h-8 min-w-0 flex-1 text-ui-sm"
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -897,26 +948,25 @@ function ChainActionCard({
               }
             }}
           />
-        ) : (
-          <div className="min-w-0 flex-1" />
-        )}
-        <Button
-          size="sm"
-          className="h-8 shrink-0 gap-1.5 px-2.5 text-ui-sm"
-          disabled={pending || (Boolean(arg?.required) && !argValue.trim())}
-          onClick={onRun}
-        >
-          {pending ? (
-            <LoaderIcon
-              className="size-3.5 animate-spin motion-reduce:animate-none"
-              strokeWidth={1.33}
-            />
-          ) : (
-            <PlayIcon className="size-3.5" strokeWidth={1.33} />
-          )}
-          {intl.formatMessage({ id: "research.actions.run" })}
-        </Button>
-      </div>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 px-2.5 text-ui-sm"
+            disabled={pending || (Boolean(action.arg?.required) && !argValue.trim())}
+            onClick={onRun}
+          >
+            {pending ? (
+              <LoaderIcon
+                className="size-3.5 animate-spin motion-reduce:animate-none"
+                strokeWidth={1.33}
+              />
+            ) : (
+              <PlayIcon className="size-3.5" strokeWidth={1.33} />
+            )}
+            {intl.formatMessage({ id: "research.actions.run" })}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1146,38 +1196,36 @@ function ProgressPane({
   );
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
+    <div className="min-h-0 flex-1 overflow-auto px-6 pb-8 pt-5">
       <div className="mx-auto w-full max-w-3xl">
-        {/* 实时会话步骤（TodoWrite 投影）：行样式对齐官方状态面板计划列表。 */}
-        <div className="flex h-8 items-center gap-1.5">
-          <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
-            {intl.formatMessage({ id: "research.progress.liveTitle" })}
-          </h2>
-          {planItems.length > 0 ? (
-            <span
-              className={cn(
-                "text-ui-base tabular-nums",
-                planCompleted >= planItems.length
-                  ? "text-success"
-                  : "text-foreground-subtle",
-              )}
-            >
-              {planCompleted}/{planItems.length}
-            </span>
-          ) : null}
-        </div>
+        {/* 实时会话步骤（TodoWrite 投影）：官方状态面板行样式 + 设置页列表容器。 */}
+        <SettingsResourceGroupHeader
+          title={intl.formatMessage({ id: "research.progress.liveTitle" })}
+          count={planItems.length}
+          actions={
+            planItems.length > 0 ? (
+              <span
+                className={cn(
+                  "text-ui-sm tabular-nums",
+                  planCompleted >= planItems.length ? "text-success" : "text-foreground-subtle",
+                )}
+              >
+                {planCompleted}/{planItems.length}
+              </span>
+            ) : undefined
+          }
+        />
         {planItems.length > 0 ? (
-          <div className="flex flex-col gap-2">
+          <div className="mt-2 flex flex-col gap-2">
             <Progress
               value={Math.round((planCompleted / planItems.length) * 100)}
               className="h-1"
             />
-            <ol className="m-0 flex list-none flex-col p-0">
-              {planItems.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex min-h-8 items-start gap-2 rounded-lg px-2 py-1.5 text-ui-base hover:bg-hover"
-                >
+            <SettingsResourceList
+              items={planItems}
+              getKey={(item) => item.id}
+              renderItem={(item) => (
+                <div className="flex min-h-8 items-start gap-2.5 px-4 py-2.5 text-ui-base">
                   <StepStatusIcon status={item.status} />
                   <span
                     title={item.content}
@@ -1190,12 +1238,12 @@ function ProgressPane({
                   >
                     {item.content}
                   </span>
-                </li>
-              ))}
-            </ol>
+                </div>
+              )}
+            />
           </div>
         ) : (
-          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
+          <div className="mt-2 flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
             {activeTaskId
               ? intl.formatMessage({ id: "research.progress.liveEmptySession" })
               : intl.formatMessage({ id: "research.progress.liveEmptyNoSession" })}
@@ -1203,99 +1251,91 @@ function ProgressPane({
         )}
 
         {/* 链路运行状态（.research/progress/*.json） */}
-        <div className="mt-5 flex h-8 items-center gap-1.5">
-          <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
-            {intl.formatMessage({ id: "research.progress.chainTitle" })}
-          </h2>
+        <div className="mt-6">
+          <SettingsResourceGroupHeader
+            title={intl.formatMessage({ id: "research.progress.chainTitle" })}
+            count={sortedRuns.length}
+          />
           {sortedRuns.length > 0 ? (
-            <span className="text-ui-base tabular-nums text-foreground-subtle">
-              {sortedRuns.length}
-            </span>
-          ) : null}
-        </div>
-        {sortedRuns.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {sortedRuns.map((run) => {
-              const statusMeta = CHAIN_RUN_STATUS_META[run.status];
-              const doneCount = run.steps.filter(
-                (step) => step.status === "completed" || step.status === "skipped",
-              ).length;
-              return (
-                <div
-                  key={run.file}
-                  className="rounded-xl border border-card-border bg-background p-3"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <WorkflowIcon
-                      className="size-4 shrink-0 text-foreground-subtle"
-                      strokeWidth={1.33}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 truncate text-ui-base font-medium leading-5 text-foreground">
-                      {run.title}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-1 font-normal",
-                        statusMeta.labelClassName,
-                      )}
-                    >
-                      <span className="flex size-5 shrink-0 items-center justify-center">
-                        {statusMeta.icon()}
+            <div className="mt-2 flex flex-col gap-3">
+              {sortedRuns.map((run) => {
+                const statusMeta = CHAIN_RUN_STATUS_META[run.status];
+                const doneCount = run.steps.filter(
+                  (step) => step.status === "completed" || step.status === "skipped",
+                ).length;
+                return (
+                  <div key={run.file} className="overflow-hidden rounded-xl bg-surface">
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-foreground-subtle">
+                        <WorkflowIcon className="size-4" strokeWidth={1.33} aria-hidden />
                       </span>
-                      {intl.formatMessage({ id: statusMeta.labelId })}
-                    </span>
-                    <span className="ml-auto shrink-0 text-ui-base tabular-nums text-foreground-subtlest">
-                      {formatProgressTime(run.updatedAt ?? run.startedAt)}
-                    </span>
-                  </div>
-                  {run.steps.length > 0 ? (
-                    <ol className="m-0 mt-1 flex list-none flex-col p-0">
-                      {run.steps.map((step) => (
-                        <li
-                          key={step.id}
-                          className="flex min-h-8 items-start gap-2 rounded-lg px-2 py-1.5 text-ui-base hover:bg-hover"
+                      <span className="min-w-0">
+                        <span className="block truncate text-ui-base font-medium text-foreground">
+                          {run.title}
+                        </span>
+                        <span
+                          className={cn(
+                            "mt-0.5 flex items-center gap-1 text-ui-sm font-normal",
+                            statusMeta.labelClassName,
+                          )}
                         >
-                          <StepStatusIcon status={step.status} />
-                          <span
-                            className={cn(
-                              "line-clamp-2 min-w-0 flex-1 break-words leading-5",
-                              step.status === "completed"
-                                ? "text-foreground-subtlest line-through"
-                                : "text-foreground",
+                          {statusMeta.icon()}
+                          {intl.formatMessage({ id: statusMeta.labelId })}
+                          <span className="text-foreground-subtlest">
+                            ·
+                            {intl.formatMessage(
+                              { id: "research.progress.chainCount" },
+                              { done: doneCount, total: run.steps.length },
                             )}
-                          >
-                            {step.title}
                           </span>
-                          {step.at ? (
-                            <span className="shrink-0 text-ui-base tabular-nums text-foreground-subtlest">
-                              {formatProgressTime(step.at)}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ol>
-                  ) : null}
-                  <div className="mt-1.5 flex items-center">
-                    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 text-ui-base font-normal tabular-nums text-foreground-subtle">
-                      {intl.formatMessage(
-                        { id: "research.progress.chainCount" },
-                        { done: doneCount, total: run.steps.length },
-                      )}
-                    </span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-ui-sm tabular-nums text-foreground-subtlest">
+                        {formatProgressTime(run.updatedAt ?? run.startedAt)}
+                      </span>
+                    </div>
+                    {run.steps.length > 0 ? (
+                      <div>
+                        {run.steps.map((step, index) => (
+                          <div key={step.id}>
+                            {index > 0 ? (
+                              <div className="h-px bg-border/50" aria-hidden />
+                            ) : null}
+                            <div className="flex min-h-8 items-start gap-2.5 px-4 py-2.5 text-ui-base">
+                              <StepStatusIcon status={step.status} />
+                              <span
+                                className={cn(
+                                  "line-clamp-2 min-w-0 flex-1 break-words leading-5",
+                                  step.status === "completed"
+                                    ? "text-foreground-subtlest line-through"
+                                    : "text-foreground",
+                                )}
+                              >
+                                {step.title}
+                              </span>
+                              {step.at ? (
+                                <span className="shrink-0 text-ui-sm tabular-nums text-foreground-subtlest">
+                                  {formatProgressTime(step.at)}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
-            {scanned
-              ? intl.formatMessage({ id: "research.progress.chainEmpty" })
-              : intl.formatMessage({ id: "research.loading" })}
-          </div>
-        )}
-        <div className="mt-3">
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
+              {scanned
+                ? intl.formatMessage({ id: "research.progress.chainEmpty" })
+                : intl.formatMessage({ id: "research.loading" })}
+            </div>
+          )}
+        </div>
+        <div className="mt-4">
           <Button
             variant="outline"
             size="sm"
@@ -3382,14 +3422,14 @@ function DeliverablesCenter({
     };
   }, [expandedDir, fileService]);
 
-  const renderRow = (row: DeliverableRow) => {
+  const renderRow = (row: DeliverableRow, inGroup = false) => {
     const isExpandedDir = row.kind === "directory" && expandedDir === row.path;
     return (
       <div key={row.path}>
-        <div className="group flex w-full items-center gap-2 rounded-xl border border-card-border bg-background px-3 py-2.5 text-left transition-colors hover:bg-hover">
+        <div className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-hover">
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
+            className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-input-border-focused"
             onClick={() => {
               if (row.kind === "directory") {
                 setExpandedDir(isExpandedDir ? null : row.path);
@@ -3399,53 +3439,77 @@ function DeliverablesCenter({
               }
             }}
           >
-            {row.kind === "directory" ? (
-              isExpandedDir ? (
-                <ChevronDownIcon className="size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-foreground-subtle">
+              {row.kind === "directory" ? (
+                isExpandedDir ? (
+                  <ChevronDownIcon className="size-4" strokeWidth={1.33} aria-hidden />
+                ) : (
+                  <ChevronRightIcon className="size-4" strokeWidth={1.33} aria-hidden />
+                )
               ) : (
-                <ChevronRightIcon className="size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
-              )
-            ) : (
-              <FileDisplayIcon
-                src={resolveFileDisplayDescriptor(row.path).fileIconSrc}
-                size={16}
-                className="shrink-0"
-              />
-            )}
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-ui-base font-normal leading-5 text-foreground">
-                {row.detail}
+                <FileDisplayIcon
+                  src={resolveFileDisplayDescriptor(row.path).fileIconSrc}
+                  size={16}
+                />
+              )}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-ui-base font-medium text-foreground">
+                {row.detail.split("/").pop() ?? row.detail}
               </span>
-              {row.label ? (
-                <span className="block truncate text-ui-base font-normal leading-5 text-foreground-subtlest">
-                  {row.label}
+              {!inGroup ? (
+                <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
+                  {row.label || row.detail}
                 </span>
-              ) : null}
+              ) : (
+                <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
+                  {row.detail.split("/").slice(0, -1).join("/") || row.detail}
+                </span>
+              )}
             </span>
           </button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0 text-foreground-subtlest opacity-0 transition-opacity group-hover:opacity-100"
-            aria-label={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
-            onClick={() =>
-              void copyPrompt(row.path, intl.formatMessage({ id: "research.deliverables.pathCopied" }))
-            }
-          >
-            <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
-          </Button>
+          <span className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-foreground-subtlest opacity-0 transition-opacity group-hover:opacity-100"
+              aria-label={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
+              onClick={() =>
+                void copyPrompt(
+                  row.path,
+                  intl.formatMessage({ id: "research.deliverables.pathCopied" }),
+                )
+              }
+            >
+              <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-foreground-subtlest opacity-0 transition-opacity group-hover:opacity-100"
+              aria-label={intl.formatMessage({ id: "research.deliverables.preview" })}
+              onClick={() => {
+                if (row.kind === "file") {
+                  setPreview({ path: row.path, name: row.detail.split("/").pop() ?? row.detail });
+                }
+              }}
+            >
+              <EyeIcon className="size-3.5" strokeWidth={1.33} />
+            </Button>
+          </span>
         </div>
         {isExpandedDir
-          ? dirChildren.map((child) => (
-              <div
-                key={child.path}
-                className="ml-5 mt-1 flex items-center gap-2.5 rounded-lg px-3 py-1.5 transition-colors hover:bg-hover"
-              >
+          ? dirChildren.map((child, childIndex) => (
+              <div key={child.path}>
+                <div className="h-px bg-border/50" aria-hidden />
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
+                  className="flex w-full items-center gap-2.5 px-4 py-2 pl-12 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-input-border-focused"
                   onClick={() =>
-                    setPreview({ path: child.path, name: child.detail.split("/").pop() ?? child.detail })
+                    setPreview({
+                      path: child.path,
+                      name: child.detail.split("/").pop() ?? child.detail,
+                    })
                   }
                 >
                   <FileDisplayIcon
@@ -3453,8 +3517,13 @@ function DeliverablesCenter({
                     size={14}
                     className="shrink-0"
                   />
-                  <span className="truncate text-ui-base font-normal leading-5 text-foreground-subtle">{child.detail}</span>
-                  <EyeIcon className="ml-auto size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
+                  <span className="min-w-0 flex-1 truncate text-ui-sm text-foreground-subtle">
+                    {child.detail.split("/").pop() ?? child.detail}
+                  </span>
+                  <EyeIcon
+                    className="size-3.5 shrink-0 text-foreground-subtlest"
+                    strokeWidth={1.33}
+                  />
                 </button>
               </div>
             ))
@@ -3463,34 +3532,46 @@ function DeliverablesCenter({
     );
   };
 
+  // 按 label 分组（保持扫描顺序），组内条目进官方资源列表。
+  const groupedRows = useMemo(() => {
+    const groups: Array<{ label: string; items: DeliverableRow[] }> = [];
+    for (const row of rows) {
+      const last = groups[groups.length - 1];
+      if (last && last.label === row.label) {
+        last.items.push(row);
+      } else {
+        groups.push({ label: row.label, items: [row] });
+      }
+    }
+    return groups;
+  }, [rows]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-sm text-foreground-subtle">
-          {intl.formatMessage({ id: "research.deliverables.count" }, { count: rows.length })}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto h-8 px-2.5 text-ui-sm"
-          onClick={() => setReloadKey((key) => key + 1)}
-        >
-          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
-          {intl.formatMessage({ id: "research.deliverables.rescan" })}
-        </Button>
-        <Button
-          size="sm"
-          className="h-8 px-2.5 text-ui-sm"
-          onClick={() =>
+      <div className="flex shrink-0 items-center gap-2 px-6 pt-5">
+        <h1 className="text-ui-xl font-semibold text-foreground">
+          {intl.formatMessage({ id: "research.deliverables.tab" })}
+        </h1>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2.5 text-ui-sm"
+            onClick={() => setReloadKey((key) => key + 1)}
+          >
+            <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
+            {intl.formatMessage({ id: "research.deliverables.rescan" })}
+          </Button>
+          <Button size="sm" className="h-8 px-2.5 text-ui-sm" onClick={() =>
             void copyPrompt(
               intl.formatMessage({ id: "research.deliverables.runSubmitPrompt" }),
               intl.formatMessage({ id: "research.promptCopied" }),
             )
-          }
-        >
-          <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
-          {intl.formatMessage({ id: "research.deliverables.runSubmit" })}
-        </Button>
+          }>
+            <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
+            {intl.formatMessage({ id: "research.deliverables.runSubmit" })}
+          </Button>
+        </div>
       </div>
       {preview ? (
         <DeliverablePreview
@@ -3501,11 +3582,25 @@ function DeliverablesCenter({
           onError={onError}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto px-4 pb-6">
+        <div className="min-h-0 flex-1 overflow-auto px-6 pb-8 pt-4">
           <div className="mx-auto w-full max-w-3xl">
-            {rows.map(renderRow)}
+            {groupedRows.map((group) => (
+              <div key={group.label} className="mt-5 first:mt-0">
+                <SettingsResourceGroupHeader
+                  title={group.label}
+                  count={group.items.length}
+                />
+                <div className="mt-2">
+                  <SettingsResourceList
+                    items={group.items}
+                    getKey={(item) => item.path}
+                    renderItem={(item) => renderRow(item, true)}
+                  />
+                </div>
+              </div>
+            ))}
             {scanned && rows.length === 0 ? (
-              <div className="p-3 text-ui-sm text-foreground-subtlest">
+              <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
                 {intl.formatMessage({ id: "research.deliverables.empty" })}
               </div>
             ) : null}
@@ -3599,8 +3694,8 @@ function DeliverablePreview({
         </span>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-6 w-6 shrink-0 p-0"
+          size="icon-sm"
+          className="shrink-0"
           onClick={onClose}
           aria-label={intl.formatMessage({ id: "research.viewer.close" })}
         >
