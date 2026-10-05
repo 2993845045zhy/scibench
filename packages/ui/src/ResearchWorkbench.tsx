@@ -1803,28 +1803,28 @@ function LiteratureLibrary({
         }
         if (papers.length > 0) loaded.push({ slug: entry.name, papers });
       }
-      // docs/lit/ 没有条目时兜底：docs/papers/ 的本地 PDF 整组列出（文件名即题名）。
-      if (loaded.length === 0) {
-        try {
-          const pdfEntries = await fileService.readdir({
-            path: joinPath(workspacePath, "docs/papers"),
+      // docs/papers/ 的本地 PDF 常驻成组（与 lit 条目并列，不只在 lit 为空时兜底）。
+      try {
+        const pdfEntries = await fileService.readdir({
+          path: joinPath(workspacePath, "docs/papers"),
+        });
+        const pdfPapers: LitPaper[] = [];
+        for (const entry of pdfEntries) {
+          if (entry.type !== "file" || fileExtension(entry.name) !== "pdf") continue;
+          pdfPapers.push({
+            slug: intl.formatMessage({ id: "research.literature.localPdfs" }),
+            title: entry.name.replace(/\.pdf$/, ""),
+            year: null,
+            authors: null,
+            sourceFile: entry.path,
+            kind: "pdf",
           });
-          const pdfPapers: LitPaper[] = [];
-          for (const entry of pdfEntries) {
-            if (entry.type !== "file" || fileExtension(entry.name) !== "pdf") continue;
-            pdfPapers.push({
-              slug: intl.formatMessage({ id: "research.literature.localPdfs" }),
-              title: entry.name.replace(/\.pdf$/, ""),
-              year: null,
-              authors: null,
-              sourceFile: entry.path,
-              kind: "pdf",
-            });
-          }
-          if (pdfPapers.length > 0) loaded.push({ slug: pdfPapers[0]!.slug, papers: pdfPapers });
-        } catch {
-          // docs/papers/ 不存在：保持空态。
         }
+        if (pdfPapers.length > 0) {
+          loaded.push({ slug: pdfPapers[0]!.slug, papers: pdfPapers });
+        }
+      } catch {
+        // docs/papers/ 不存在：跳过该组。
       }
       if (disposed) return;
       setGroups(loaded);
