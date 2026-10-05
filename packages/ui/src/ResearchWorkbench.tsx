@@ -36,6 +36,9 @@ import {
 import { CodeViewer, findCodeViewerLineElement } from "@/components/ui/code-viewer.js";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible.js";
 import { Spinner } from "@/components/ui/spinner.js";
+import { PreviewPane } from "@/PreviewPane.js";
+import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";
+import type { CodeViewerSource } from "@/lib/codeViewer.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { cn } from "@/components/lib/utils.js";
@@ -58,7 +61,6 @@ const PDF_FULL_READ_MAX_BYTES = 8 * 1024 * 1024;
 const OVERLAY_PDF_MAX_BYTES = 16 * 1024 * 1024;
 const SYNCTEX_MAX_BYTES = 4 * 1024 * 1024;
 const TEXT_PREVIEW_LIMIT_BYTES = 64 * 1024;
-const CODE_FILE_LIMIT_BYTES = 512 * 1024;
 
 /** 文件树可打开的代码类扩展名 → CodeViewer 语言 id；不在表内=不反应。 */
 const CODE_LANGUAGE_BY_EXTENSION: Record<string, string> = {
@@ -348,8 +350,8 @@ export function ResearchWorkbench({
   // 文件树点击 .tex → 切到 LaTeX 页并切换目标（由 LatexWorkbench 消费后清空）。
   const [pendingTexRel, setPendingTexRel] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ path: string; name: string } | null>(null);
-  // 文件树点击代码文件 → 内容区切换为代码视图；点导航回原页面。
-  const [codeFile, setCodeFile] = useState<{ path: string; name: string } | null>(null);
+  // 文件树点击代码文件 → 「代码」栏内用官方 PreviewPane 打开；点 × 关闭。
+  const [previewSource, setPreviewSource] = useState<CodeViewerSource | null>(null);
 
   const copyPrompt = useCallback(async (prompt: string, doneLabel: string) => {
     try {
@@ -406,7 +408,7 @@ export function ResearchWorkbench({
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1">
-        <div className="flex w-52 shrink-0 flex-col border-r border-card-border bg-sidebar/40">
+        <div className="flex w-60 shrink-0 flex-col border-r border-card-border bg-sidebar/40">
           <nav className="flex flex-col gap-0.5 p-2">
             {SECTIONS.map(({ id, icon: SectionIcon, labelId }) => (
               <button
@@ -450,7 +452,14 @@ export function ResearchWorkbench({
                 }
                 // 仅在「代码」栏激活时，文件树的代码文件点击才打开查看；其余栏目不反应。
                 if (section === "code" && CODE_LANGUAGE_BY_EXTENSION[extension]) {
-                  setCodeFile({ path, name });
+                  setPreviewSource({
+                    type: "file",
+                    title: name,
+                    path,
+                    workspacePath,
+                    workspaceIdentity: workspaceIdentity ?? undefined,
+                    workspaceRemoteSessionId: remoteSessionId ?? undefined,
+                  });
                 }
               }}
             />
@@ -458,21 +467,11 @@ export function ResearchWorkbench({
         </div>
         <div className="min-h-0 min-w-0 flex-1">
           {section === "code" ? (
-            codeFile ? (
-              <CodeFileView
-                path={codeFile.path}
-                name={codeFile.name}
-                fileService={fileService}
-                onClose={() => setCodeFile(null)}
-                onError={setError}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center p-6">
-                <div className="max-w-md text-center text-ui-sm leading-5 text-foreground-subtlest">
-                  {intl.formatMessage({ id: "research.code.empty" })}
-                </div>
-              </div>
-            )
+            <PreviewPane
+              source={previewSource}
+              onClose={() => setPreviewSource(null)}
+              workspacePath={workspacePath}
+            />
           ) : section === "latex" ? (
             <LatexWorkbench
               workspacePath={workspacePath}
@@ -626,20 +625,13 @@ function FileTree({
     return entries.map((entry) => {
       const isDir = entry.type === "directory";
       const isOpen = expanded.has(entry.path);
-      const extension = fileExtension(entry.name);
-      const Icon = isDir
-        ? FolderIcon
-        : extension === "tex"
-          ? FileTextIcon
-          : IMAGE_EXTENSIONS.has(extension)
-            ? ImageIcon
-            : FileIcon;
+      const descriptor = resolveFileDisplayDescriptor(entry.path);
       return (
         <div key={entry.path}>
           <button
             type="button"
-            className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-ui-xs text-foreground-subtle hover:bg-hover hover:text-foreground"
-            style={{ paddingLeft: 4 + depth * 12 }}
+            className="flex h-7 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg border border-transparent py-1 pr-2 text-left text-ui-base text-foreground transition-colors hover:bg-surface-hover"
+            style={{ paddingLeft: `calc(${depth} * 0.75rem + 0.5rem)` }}
             onClick={() => {
               if (isDir) {
                 toggleDir(entry.path);
@@ -650,19 +642,27 @@ function FileTree({
             title={entry.path}
           >
             {isDir ? (
-              isOpen ? (
-                <ChevronDownIcon className="size-3 shrink-0 text-foreground-subtle" />
+              <ChevronRightIcon
+                className={cn(
+                  "size-3 shrink-0 text-foreground-subtlest transition-transform",
+                  isOpen && "rotate-90",
+                )}
+                strokeWidth={1.33}
+              />
+            ) : null}
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              {descriptor.fileIconSrc ? (
+                <FileDisplayIcon src={descriptor.fileIconSrc} size={16} className="shrink-0" />
+              ) : isDir ? (
+                <FolderIcon className="size-4 shrink-0 text-foreground-subtle" strokeWidth={1.33} />
               ) : (
-                <ChevronRightIcon className="size-3 shrink-0 text-foreground-subtle" />
-              )
-            ) : (
-              <span className="w-3 shrink-0" aria-hidden />
-            )}
-            <Icon
-              className={cn("size-3 shrink-0", isDir ? "text-primary/70" : "text-foreground-subtlest")}
-            strokeWidth={1.33}
-            />
-            <span className="truncate">{entry.name}</span>
+                <FileIcon
+                  className="size-4 shrink-0 text-foreground-subtlest"
+                  strokeWidth={1.33}
+                />
+              )}
+              <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+            </span>
           </button>
           {isDir && isOpen ? renderEntries(entry.path, depth + 1) : null}
         </div>
@@ -670,7 +670,7 @@ function FileTree({
     });
   };
 
-  return <div className="text-ui-xs">{renderEntries(workspacePath, 0)}</div>;
+  return <div>{renderEntries(workspacePath, 0)}</div>;
 }
 
 // ── 文件预览浮层（文件树点击图片/PDF/文本） ──
@@ -767,92 +767,6 @@ function OverlayFileViewer({
           </div>
         ) : (
           <div className="p-3 text-ui-xs text-foreground-subtlest">
-            {intl.formatMessage({ id: "research.loading" })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── 代码视图（文件树点击代码文件，CodeViewer 语法高亮） ──
-
-function CodeFileView({
-  path,
-  name,
-  fileService,
-  onClose,
-  onError,
-}: {
-  path: string;
-  name: string;
-  fileService: FileServiceLike;
-  onClose: () => void;
-  onError: (message: string | null) => void;
-}) {
-  const { intl } = useZCodeIntl();
-  const [code, setCode] = useState<string | null>(null);
-  const [unsupported, setUnsupported] = useState(false);
-  const language = CODE_LANGUAGE_BY_EXTENSION[fileExtension(name)] ?? "text";
-
-  useEffect(() => {
-    let disposed = false;
-    setCode(null);
-    setUnsupported(false);
-    void (async () => {
-      try {
-        const slice = await fileService.readTextFile({ path, length: CODE_FILE_LIMIT_BYTES });
-        if (disposed) return;
-        if (slice.isBinary) {
-          setUnsupported(true);
-          return;
-        }
-        setCode(slice.content);
-      } catch {
-        if (!disposed) setUnsupported(true);
-      }
-    })().catch((loadError: unknown) => {
-      if (!disposed) onError(loadError instanceof Error ? loadError.message : String(loadError));
-    });
-    return () => {
-      disposed = true;
-    };
-  }, [path, fileService, onError]);
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-card-border bg-card px-4 py-2">
-        <FileTextIcon className="size-3.5 shrink-0 text-primary" strokeWidth={1.33} />
-        <span className="truncate text-ui-xs font-medium" title={path}>
-          {name}
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-6 w-6 shrink-0 p-0"
-          onClick={onClose}
-          aria-label={intl.formatMessage({ id: "research.viewer.close" })}
-        >
-          <XIcon className="size-4" />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 p-3">
-        {unsupported ? (
-          <div className="p-3 text-ui-xs text-foreground-subtlest">
-            {intl.formatMessage({ id: "research.code.unsupported" })}
-          </div>
-        ) : code != null ? (
-          <CodeViewer
-            code={code}
-            language={language}
-            enableSyntaxHighlighting
-            showLineNumbers
-            fontSizePx={12}
-            className="h-full"
-          />
-        ) : (
-          <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
-            <Spinner className="size-3.5" />
             {intl.formatMessage({ id: "research.loading" })}
           </div>
         )}
