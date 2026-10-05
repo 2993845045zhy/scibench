@@ -5,6 +5,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardCopyIcon,
+  CodeIcon,
   EraserIcon,
   FileIcon,
   FileTextIcon,
@@ -99,7 +100,7 @@ const CODE_LANGUAGE_BY_EXTENSION: Record<string, string> = {
   dockerfile: "dockerfile",
 };
 
-type ResearchSection = "latex" | "figures" | "experiments" | "literature" | "deliverables";
+type ResearchSection = "latex" | "figures" | "experiments" | "code" | "literature" | "deliverables";
 
 const SECTIONS: Array<{
   id: ResearchSection;
@@ -109,6 +110,7 @@ const SECTIONS: Array<{
   { id: "latex", icon: FileTextIcon, labelId: "research.latex.tab" },
   { id: "figures", icon: ImageIcon, labelId: "research.figures.tab" },
   { id: "experiments", icon: ListIcon, labelId: "research.experiments.tab" },
+  { id: "code", icon: CodeIcon, labelId: "research.code.tab" },
   { id: "literature", icon: BookOpenIcon, labelId: "research.literature.tab" },
   { id: "deliverables", icon: PackageIcon, labelId: "research.deliverables.tab" },
 ];
@@ -410,10 +412,7 @@ export function ResearchWorkbench({
               <button
                 key={id}
                 type="button"
-                onClick={() => {
-                  setCodeFile(null);
-                  setSection(id);
-                }}
+                onClick={() => setSection(id)}
                 className={cn(
                   "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-ui-sm transition-colors",
                   section === id
@@ -449,24 +448,31 @@ export function ResearchWorkbench({
                   setSection("latex");
                   return;
                 }
-                if (CODE_LANGUAGE_BY_EXTENSION[extension]) {
+                // 仅在「代码」栏激活时，文件树的代码文件点击才打开查看；其余栏目不反应。
+                if (section === "code" && CODE_LANGUAGE_BY_EXTENSION[extension]) {
                   setCodeFile({ path, name });
-                  return;
                 }
-                // 非代码文件：不反应（图片/PDF 预览在图表页与文献页）。
               }}
             />
           </div>
         </div>
         <div className="min-h-0 min-w-0 flex-1">
-          {codeFile ? (
-            <CodeFileView
-              path={codeFile.path}
-              name={codeFile.name}
-              fileService={fileService}
-              onClose={() => setCodeFile(null)}
-              onError={setError}
-            />
+          {section === "code" ? (
+            codeFile ? (
+              <CodeFileView
+                path={codeFile.path}
+                name={codeFile.name}
+                fileService={fileService}
+                onClose={() => setCodeFile(null)}
+                onError={setError}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-6">
+                <div className="max-w-md text-center text-ui-sm leading-5 text-foreground-subtlest">
+                  {intl.formatMessage({ id: "research.code.empty" })}
+                </div>
+              </div>
+            )
           ) : section === "latex" ? (
             <LatexWorkbench
               workspacePath={workspacePath}

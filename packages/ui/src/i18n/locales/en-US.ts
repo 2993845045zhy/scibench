@@ -6851,6 +6851,9 @@ const enUS: Record<string, string> = {
   "research.viewer.close": "Close",
   "research.viewer.unsupported": "File too large or preview unsupported",
   "research.code.unsupported": "Binary or oversized file — not previewed here",
+  "research.code.tab": "Code",
+  "research.code.empty":
+    "Click a code file (.py/.cpp/.yaml …) in the file tree below to open it; × closes the current file",
   "research.synctex.ready": "SyncTeX on: click a source line to jump pages, click the PDF to jump lines",
   "research.synctex.missingShort": "SyncTeX off",
   "research.synctex.missing":

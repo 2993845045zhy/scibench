@@ -6529,6 +6529,8 @@ const zhCN: Record<string, string> = {
   "research.viewer.close": "关闭",
   "research.viewer.unsupported": "该文件过大或暂不支持预览",
   "research.code.unsupported": "二进制或超限文件，不在此预览",
+  "research.code.tab": "代码",
+  "research.code.empty": "在下方文件树点击代码文件（.py/.cpp/.yaml 等）打开查看；点 × 关闭当前文件",
   "research.synctex.ready": "SyncTeX 已连接：点源码行跳页，点 PDF 页跳行",
   "research.synctex.missingShort": "SyncTeX 未连接",
   "research.synctex.missing":
