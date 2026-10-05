@@ -6814,6 +6814,33 @@ const enUS: Record<string, string> = {
   "scheduledPreview.toast.running": "Running “{title}”…",
   "scheduledPreview.toast.view": "View",
   "scheduledPreview.addSchedule": "Add schedule",
+  "research.title": "Research Workbench",
+  "research.loading": "Loading…",
+  "research.promptCopied": "Prompt copied — paste it into the chat and send",
+  "research.latex.tab": "LaTeX",
+  "research.latex.pathLabel": "TeX source path (relative to workspace)",
+  "research.latex.reload": "Reload",
+  "research.latex.compile": "Compile",
+  "research.latex.compilePrompt":
+    "Compile {path} with xelatex (twice for stable references); report only the error lines and suggested fixes, or reply OK on success.",
+  "research.latex.sourceMissing": "Source file not found (enter the correct path, or ask the agent to scaffold one)",
+  "research.pdf.preview": "PDF preview",
+  "research.pdf.loading": "Loading PDF…",
+  "research.pdf.error": "Failed to load PDF",
+  "research.pdf.missing": "No compiled PDF yet — hit Compile to hand the job to the agent, then Reload",
+  "research.figures.tab": "Figures",
+  "research.figures.count": "{count} figures",
+  "research.figures.rescan": "Rescan",
+  "research.figures.commentPlaceholder": "What is wrong with this figure (e.g. legend too small, axis unit missing)",
+  "research.figures.back": "Back",
+  "research.figures.sendFeedback": "Send feedback",
+  "research.figures.feedbackPrompt":
+    "Figure feedback: {path}. Issue: {comment}. Please update the generating script, re-run it, and tell me when the new figure is ready.",
+  "research.figures.empty": "No images found under figures/ (supported: figures/, docs/figures/, paper/figures/)",
+  "research.experiments.tab": "Experiments",
+  "research.experiments.count": "{count} experiment records",
+  "research.experiments.rescan": "Rescan",
+  "research.experiments.empty": "experiments/ is empty or missing (the exp-log skill creates it)",
 };
 
 export default enUS;

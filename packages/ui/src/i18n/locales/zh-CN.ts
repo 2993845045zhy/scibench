@@ -6492,6 +6492,33 @@ const zhCN: Record<string, string> = {
   "scheduledPreview.toast.running": "正在运行“{title}”…",
   "scheduledPreview.toast.view": "查看",
   "scheduledPreview.addSchedule": "添加计划",
+  "research.title": "科研工作台",
+  "research.loading": "加载中…",
+  "research.promptCopied": "指令已复制，粘贴到对话发送即可",
+  "research.latex.tab": "LaTeX",
+  "research.latex.pathLabel": "TeX 源文件路径（相对工作区）",
+  "research.latex.reload": "刷新",
+  "research.latex.compile": "编译",
+  "research.latex.compilePrompt":
+    "请用 xelatex 编译 {path}（跑两遍让引用稳定），只把错误行和修复建议贴给我；成功就回一句 OK。",
+  "research.latex.sourceMissing": "源文件不存在（先输入正确路径，或让 agent 生成模板）",
+  "research.pdf.preview": "PDF 预览",
+  "research.pdf.loading": "PDF 加载中…",
+  "research.pdf.error": "PDF 加载失败",
+  "research.pdf.missing": "尚无编译产物 PDF——点「编译」把指令交给 agent，编完点「刷新」",
+  "research.figures.tab": "图表",
+  "research.figures.count": "{count} 张图",
+  "research.figures.rescan": "重新扫描",
+  "research.figures.commentPlaceholder": "这张图的问题（例：图例太小，纵轴单位缺）",
+  "research.figures.back": "返回",
+  "research.figures.sendFeedback": "反馈给 agent",
+  "research.figures.feedbackPrompt":
+    "图表反馈：{path}。问题：{comment}。请修改对应生成脚本并重跑出图，完成后告诉我。",
+  "research.figures.empty": "figures/ 下没找到图片（支持 figures/、docs/figures/、paper/figures/）",
+  "research.experiments.tab": "实验",
+  "research.experiments.count": "{count} 条实验记录",
+  "research.experiments.rescan": "重新扫描",
+  "research.experiments.empty": "experiments/ 目录为空或不存在（exp-log 技能会自动创建）",
 };
 
 export default zhCN;
