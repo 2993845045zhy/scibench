@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
+  ChevronDownIcon,
   ClipboardCopyIcon,
   FileTextIcon,
   FlaskConicalIcon,
@@ -289,6 +290,8 @@ function LatexWorkbench({
   const [pdfSource, setPdfSource] = useState<PdfViewerSource | null>(null);
   const [pdfMissing, setPdfMissing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // 编译控制条默认收起（只留一行文件名），展开才显示完整控件，执行后自动收回。
+  const [toolbarOpen, setToolbarOpen] = useState(false);
 
   const texAbsPath = texRelPath ? joinPath(workspacePath, texRelPath) : null;
   const pdfAbsPath = texAbsPath ? texAbsPath.replace(/\.tex$/, ".pdf") : null;
@@ -430,56 +433,79 @@ function LatexWorkbench({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-4 py-2.5">
-        <Select
-          value={texRelPath ?? undefined}
-          onValueChange={(value) => setTexRelPath(value)}
-        >
-          <SelectTrigger
-            size="lg"
-            className="w-72 text-ui-xs"
-            aria-label={intl.formatMessage({ id: "research.latex.pathLabel" })}
-          >
-            <SelectValue placeholder={intl.formatMessage({ id: "research.loading" })} />
-          </SelectTrigger>
-          <SelectContent>
-            {texFiles.map((file) => (
-              <SelectItem key={file} value={file} className="text-ui-xs">
-                {file}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 shrink-0 px-2.5 text-ui-xs"
-          onClick={() => setReloadKey((key) => key + 1)}
-        >
-          <RefreshCwIcon className="size-3.5" />
-          {intl.formatMessage({ id: "research.latex.reload" })}
-        </Button>
-        <Button
-          size="sm"
-          className="h-8 shrink-0 px-2.5 text-ui-xs"
-          disabled={!texRelPath}
-          onClick={() =>
-            void copyPrompt(
-              intl.formatMessage(
-                { id: "research.latex.compilePrompt" },
-                { path: texRelPath ?? "" },
-              ),
-              intl.formatMessage({ id: "research.promptCopied" }),
-            )
-          }
-        >
-          <ClipboardCopyIcon className="size-3.5" />
-          {intl.formatMessage({ id: "research.latex.compile" })}
-        </Button>
-        <span className="ml-auto text-ui-xs text-muted-foreground">
-          {intl.formatMessage({ id: "research.latex.autoHint" })}
+      <button
+        type="button"
+        onClick={() => setToolbarOpen((open) => !open)}
+        className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-left text-ui-xs text-muted-foreground transition-colors hover:bg-muted/30"
+        aria-expanded={toolbarOpen}
+      >
+        <FileTextIcon className="size-3.5 shrink-0" />
+        <span className="truncate">
+          {texRelPath ?? intl.formatMessage({ id: "research.loading" })}
         </span>
-      </div>
+        <ChevronDownIcon
+          className={cn(
+            "ml-auto size-3.5 shrink-0 transition-transform",
+            toolbarOpen && "rotate-180",
+          )}
+        />
+      </button>
+      {toolbarOpen ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+          <Select
+            value={texRelPath ?? undefined}
+            onValueChange={(value) => setTexRelPath(value)}
+          >
+            <SelectTrigger
+              size="lg"
+              className="w-72 text-ui-xs"
+              aria-label={intl.formatMessage({ id: "research.latex.pathLabel" })}
+            >
+              <SelectValue placeholder={intl.formatMessage({ id: "research.loading" })} />
+            </SelectTrigger>
+            <SelectContent>
+              {texFiles.map((file) => (
+                <SelectItem key={file} value={file} className="text-ui-xs">
+                  {file}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 px-2.5 text-ui-xs"
+            onClick={() => {
+              setReloadKey((key) => key + 1);
+              setToolbarOpen(false);
+            }}
+          >
+            <RefreshCwIcon className="size-3.5" />
+            {intl.formatMessage({ id: "research.latex.reload" })}
+          </Button>
+          <Button
+            size="sm"
+            className="h-8 shrink-0 px-2.5 text-ui-xs"
+            disabled={!texRelPath}
+            onClick={() => {
+              void copyPrompt(
+                intl.formatMessage(
+                  { id: "research.latex.compilePrompt" },
+                  { path: texRelPath ?? "" },
+                ),
+                intl.formatMessage({ id: "research.promptCopied" }),
+              );
+              setToolbarOpen(false);
+            }}
+          >
+            <ClipboardCopyIcon className="size-3.5" />
+            {intl.formatMessage({ id: "research.latex.compile" })}
+          </Button>
+          <span className="ml-auto text-ui-xs text-muted-foreground">
+            {intl.formatMessage({ id: "research.latex.autoHint" })}
+          </span>
+        </div>
+      ) : null}
       {/* 整页形态：源码与 PDF 左右并排（窄面板时代是上下堆叠） */}
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 px-4 pb-4">
         <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
