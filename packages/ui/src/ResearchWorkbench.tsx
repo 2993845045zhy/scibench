@@ -3,21 +3,28 @@ import {
   ActivityIcon,
   ArrowLeftIcon,
   BookOpenIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  CircleIcon,
   ClipboardCopyIcon,
   CodeIcon,
   EraserIcon,
+  EyeIcon,
   FileIcon,
   FileTextIcon,
   FlaskConicalIcon,
   FolderIcon,
   HistoryIcon,
   ImageIcon,
+  LayoutDashboardIcon,
   ListIcon,
+  LoaderIcon,
   PackageIcon,
   PlayIcon,
   RefreshCwIcon,
+  RocketIcon,
+  WorkflowIcon,
   XIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge.js";
@@ -45,6 +52,11 @@ import { useZCodeStore } from "@/store/StoreProvider.js";
 import { resolveTheme } from "@/useTheme.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import {
+  useResearchCommandLauncher,
+  type UseResearchCommandLauncherResult,
+} from "@/research/useResearchCommandLauncher.js";
+import { useActiveTaskPlan } from "@/research/useActiveTaskPlan.js";
 import { cn } from "@/components/lib/utils.js";
 import type { IDisposable } from "@zcode/rpc";
 import type { FileEntry } from "@zcode/shared";
@@ -107,6 +119,8 @@ const CODE_LANGUAGE_BY_EXTENSION: Record<string, string> = {
 };
 
 type ResearchSection =
+  | "overview"
+  | "progress"
   | "latex"
   | "figures"
   | "experiments"
@@ -120,6 +134,8 @@ const SECTIONS: Array<{
   icon: typeof FileTextIcon;
   labelId: string;
 }> = [
+  { id: "overview", icon: LayoutDashboardIcon, labelId: "research.overview.tab" },
+  { id: "progress", icon: WorkflowIcon, labelId: "research.progress.tab" },
   { id: "latex", icon: FileTextIcon, labelId: "research.latex.tab" },
   { id: "figures", icon: ImageIcon, labelId: "research.figures.tab" },
   { id: "experiments", icon: ListIcon, labelId: "research.experiments.tab" },
@@ -131,6 +147,77 @@ const SECTIONS: Array<{
 
 /** tests/ 下视为台架的脚本前缀；结果文档约定 docs/<stem>_result.md。 */
 const BENCH_FILE_PATTERN = /^(bench_|cmp_)/;
+
+/** 链路命令进度状态文件目录（/paper-flow 等链路执行中实时更新）。 */
+const PROGRESS_DIR = ".research/progress";
+
+/** 操作台动作卡定义：链路命令 → 按钮直发，用户不再手打命令。 */
+interface ChainActionDef {
+  id: string;
+  command: string;
+  titleId: string;
+  descId: string;
+  /** 需要用户补一个参数（主题/路径/关键字）；optional = 可留空。 */
+  arg?: { placeholderId: string; required?: boolean };
+}
+
+const CHAIN_ACTIONS: ChainActionDef[] = [
+  {
+    id: "paper-flow",
+    command: "/paper-flow",
+    titleId: "research.actions.paperFlow",
+    descId: "research.actions.paperFlowDesc",
+    arg: { placeholderId: "research.actions.paperFlowArg" },
+  },
+  {
+    id: "lit-review",
+    command: "/lit-review",
+    titleId: "research.actions.litReview",
+    descId: "research.actions.litReviewDesc",
+    arg: { placeholderId: "research.actions.litReviewArg" },
+  },
+  {
+    id: "reproduce",
+    command: "/reproduce",
+    titleId: "research.actions.reproduce",
+    descId: "research.actions.reproduceDesc",
+    arg: { placeholderId: "research.actions.reproduceArg", required: true },
+  },
+  {
+    id: "verify",
+    command: "/verify",
+    titleId: "research.actions.verify",
+    descId: "research.actions.verifyDesc",
+  },
+  {
+    id: "peer-review",
+    command: "/peer-review",
+    titleId: "research.actions.peerReview",
+    descId: "research.actions.peerReviewDesc",
+  },
+  {
+    id: "submit",
+    command: "/submit",
+    titleId: "research.actions.submit",
+    descId: "research.actions.submitDesc",
+  },
+  {
+    id: "bench-all",
+    command: "/bench-all",
+    titleId: "research.actions.benchAll",
+    descId: "research.actions.benchAllDesc",
+    arg: { placeholderId: "research.actions.benchAllArg" },
+  },
+  {
+    id: "report",
+    command: "/report",
+    titleId: "research.actions.report",
+    descId: "research.actions.reportDesc",
+  },
+];
+
+/** 图表文件名中的版本后缀：policy_v2 / policy.v3 / policy-v2 → 版本 2/3/2。 */
+const FIGURE_VERSION_PATTERN = /^(.+?)[._-]?v(\d{1,3})$/i;
 
 function joinPath(base: string, rel: string): string {
   const cleanRel = rel.replace(/^\/+/, "");
@@ -346,11 +433,22 @@ export function ResearchWorkbench({
   workspacePath,
   workspaceIdentity,
   remoteSessionId,
+  activeTaskId = null,
+  onSelectTask,
   onBack,
 }: {
   workspacePath: string;
   workspaceIdentity?: string | null;
   remoteSessionId?: string | null;
+  /** 当前 workspace 激活会话；操作台按钮据此决定发到本会话还是新建会话。 */
+  activeTaskId?: string | null;
+  /** 草稿态新建会话后的导航回调（参数对齐 handleSelectTaskInChat）。 */
+  onSelectTask?: (
+    workspacePath: string,
+    taskId: string,
+    workspaceIdentity?: string,
+    remoteSessionId?: string,
+  ) => void;
   onBack?: () => void;
 }) {
   const { intl } = useZCodeIntl();
@@ -359,7 +457,20 @@ export function ResearchWorkbench({
     remoteSessionId,
     workspaceIdentity,
   );
-  const [section, setSection] = useState<ResearchSection>("latex");
+  const launcher = useResearchCommandLauncher({
+    workspacePath,
+    workspaceIdentity,
+    remoteSessionId,
+    activeTaskId,
+    onSelectTask,
+  });
+  const activePlan = useActiveTaskPlan({
+    workspacePath,
+    workspaceIdentity,
+    remoteSessionId,
+    activeTaskId,
+  });
+  const [section, setSection] = useState<ResearchSection>("overview");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   // 文件树点击 .tex → 切到 LaTeX 页并切换目标（由 LatexWorkbench 消费后清空）。
@@ -481,7 +592,26 @@ export function ResearchWorkbench({
           </div>
         </div>
         <div className="min-h-0 min-w-0 flex-1">
-          {section === "bench" ? (
+          {section === "overview" ? (
+            <OverviewPane
+              activeTaskId={activeTaskId}
+              activePlan={activePlan}
+              launcher={launcher}
+              onNavigate={setSection}
+              onToast={setToast}
+              onError={setError}
+            />
+          ) : section === "progress" ? (
+            <ProgressPane
+              workspacePath={workspacePath}
+              activeTaskId={activeTaskId}
+              activePlan={activePlan}
+              fileService={fileService}
+              watcher={fileWatcherService}
+              onError={setError}
+              onOpenActions={() => setSection("overview")}
+            />
+          ) : section === "bench" ? (
             <BenchBoard
               workspacePath={workspacePath}
               fileService={fileService}
@@ -549,6 +679,587 @@ export function ResearchWorkbench({
           onError={setError}
         />
       ) : null}
+    </div>
+  );
+}
+
+// ── 总览页（操作台：链路命令按钮化 + 当前进度摘要 + 快捷入口） ──
+
+function OverviewPane({
+  activeTaskId,
+  activePlan,
+  launcher,
+  onNavigate,
+  onToast,
+  onError,
+}: {
+  activeTaskId: string | null;
+  activePlan: ReturnType<typeof useActiveTaskPlan>;
+  launcher: UseResearchCommandLauncherResult;
+  onNavigate: (section: ResearchSection) => void;
+  onToast: (message: string | null) => void;
+  onError: (message: string | null) => void;
+}) {
+  const { intl } = useZCodeIntl();
+  const [args, setArgs] = useState<Record<string, string>>({});
+
+  const runChain = useCallback(
+    (action: ChainActionDef) => {
+      const arg = args[action.id]?.trim() ?? "";
+      if (action.arg?.required && !arg) {
+        onError(intl.formatMessage({ id: "research.actions.argRequired" }));
+        return;
+      }
+      const text = arg ? `${action.command} ${arg}` : action.command;
+      void launcher.run(text).then((result) => {
+        if (result.ok) {
+          onError(null);
+          onToast(
+            activeTaskId
+              ? intl.formatMessage({ id: "research.actions.sentToSession" })
+              : intl.formatMessage({ id: "research.actions.startedNewSession" }),
+          );
+        } else {
+          onToast(null);
+          onError(
+            intl.formatMessage(
+              { id: "research.actions.launchFailed" },
+              { reason: result.error.code },
+            ),
+          );
+        }
+      });
+    },
+    [activeTaskId, args, intl, launcher, onError, onToast],
+  );
+
+  const planItems = activePlan.plan?.items ?? [];
+  const planCompleted = planItems.filter((item) => item.status === "completed").length;
+  const planCurrent = planItems.find((item) => item.status === "inProgress") ?? null;
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
+      <div className="mx-auto w-full max-w-4xl">
+        {/* 当前进度摘要：跑链路时一眼看到走到第几步，点开进进度页。 */}
+        {planItems.length > 0 ? (
+          <button
+            type="button"
+            className="mb-5 flex w-full items-center gap-3 rounded-[10px] border border-card-border bg-card px-3.5 py-3 text-left transition-colors hover:border-primary/50"
+            onClick={() => onNavigate("progress")}
+          >
+            <LoaderIcon
+              className="size-4 shrink-0 animate-spin text-primary"
+              strokeWidth={1.33}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="text-ui-sm font-medium text-foreground">
+                {intl.formatMessage(
+                  { id: "research.progress.summaryTitle" },
+                  { done: planCompleted, total: planItems.length },
+                )}
+              </div>
+              <div className="truncate text-ui-sm text-foreground-subtle">
+                {planCurrent?.content ?? planItems[planItems.length - 1]!.content}
+              </div>
+            </div>
+            <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-hover">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.round((planCompleted / planItems.length) * 100)}%` }}
+              />
+            </div>
+          </button>
+        ) : null}
+
+        <div className="mb-2 text-ui-base font-medium text-foreground">
+          {intl.formatMessage({ id: "research.actions.title" })}
+        </div>
+        <div className="mb-1.5 text-ui-sm text-foreground-subtle">
+          {intl.formatMessage(
+            { id: "research.actions.hint" },
+            {
+              target: activeTaskId
+                ? intl.formatMessage({ id: "research.actions.targetSession" })
+                : intl.formatMessage({ id: "research.actions.targetNew" }),
+            },
+          )}
+        </div>
+        {launcher.error ? (
+          <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-ui-sm text-destructive">
+            {intl.formatMessage(
+              { id: "research.actions.launchFailed" },
+              { reason: launcher.error.code },
+            )}
+          </div>
+        ) : null}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {CHAIN_ACTIONS.map((action) => (
+            <ChainActionCard
+              key={action.id}
+              action={action}
+              argValue={args[action.id] ?? ""}
+              pending={launcher.pending}
+              onArgChange={(value) =>
+                setArgs((current) => ({ ...current, [action.id]: value }))
+              }
+              onRun={() => runChain(action)}
+            />
+          ))}
+        </div>
+
+        <div className="mt-5 mb-2 text-ui-base font-medium text-foreground">
+          {intl.formatMessage({ id: "research.actions.quickLinks" })}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-ui-sm"
+            onClick={() => onNavigate("latex")}
+          >
+            <FileTextIcon className="size-3.5" strokeWidth={1.33} />
+            {intl.formatMessage({ id: "research.actions.openLatex" })}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-ui-sm"
+            onClick={() => onNavigate("bench")}
+          >
+            <ActivityIcon className="size-3.5" strokeWidth={1.33} />
+            {intl.formatMessage({ id: "research.actions.openBench" })}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-ui-sm"
+            onClick={() => onNavigate("figures")}
+          >
+            <ImageIcon className="size-3.5" strokeWidth={1.33} />
+            {intl.formatMessage({ id: "research.actions.openFigures" })}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChainActionCard({
+  action: { command, titleId, descId, arg },
+  argValue,
+  pending,
+  onArgChange,
+  onRun,
+}: {
+  action: ChainActionDef;
+  argValue: string;
+  pending: boolean;
+  onArgChange: (value: string) => void;
+  onRun: () => void;
+}) {
+  const { intl } = useZCodeIntl();
+  const title = intl.formatMessage({ id: titleId });
+  return (
+    <div className="flex flex-col rounded-[10px] border border-card-border bg-card px-3.5 py-3">
+      <div className="flex items-center gap-2">
+        <RocketIcon className="size-4 shrink-0 text-primary" strokeWidth={1.33} />
+        <span className="text-ui-sm font-medium text-foreground">{title}</span>
+        <span className="ml-auto shrink-0 rounded bg-hover px-1.5 py-0.5 font-mono text-ui-sm text-foreground-subtlest">
+          {command}
+        </span>
+      </div>
+      <div className="mt-1.5 text-ui-sm leading-relaxed text-foreground-subtle">
+        {intl.formatMessage({ id: descId })}
+      </div>
+      <div className="mt-2.5 flex items-center gap-2">
+        {arg ? (
+          <Input
+            value={argValue}
+            onChange={(event) => onArgChange(event.target.value)}
+            placeholder={intl.formatMessage({ id: arg.placeholderId })}
+            className="h-8 min-w-0 flex-1 text-ui-sm"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onRun();
+              }
+            }}
+          />
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
+        <Button
+          size="sm"
+          className="h-8 shrink-0 gap-1.5 px-2.5 text-ui-sm"
+          disabled={pending || (Boolean(arg?.required) && !argValue.trim())}
+          onClick={onRun}
+        >
+          {pending ? (
+            <LoaderIcon className="size-3.5 animate-spin" strokeWidth={1.33} />
+          ) : (
+            <PlayIcon className="size-3.5" strokeWidth={1.33} />
+          )}
+          {intl.formatMessage({ id: "research.actions.run" })}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── 进度页（实时会话步骤 + 链路运行状态） ──
+
+interface ChainRunStep {
+  id: string;
+  title: string;
+  status: "pending" | "inProgress" | "completed" | "failed" | "skipped";
+  at?: string;
+}
+
+interface ChainRun {
+  chain: string;
+  title: string;
+  status: "running" | "done" | "failed" | "paused";
+  startedAt?: string;
+  updatedAt?: string;
+  steps: ChainRunStep[];
+  file: string;
+}
+
+function normalizeChainStepStatus(value: unknown): ChainRunStep["status"] {
+  const text = typeof value === "string" ? value.replace(/[-\s]/g, "").toLowerCase() : "";
+  if (text === "completed" || text === "done") return "completed";
+  if (text === "inprogress" || text === "running") return "inProgress";
+  if (text === "failed" || text === "error") return "failed";
+  if (text === "skipped") return "skipped";
+  return "pending";
+}
+
+function parseChainRunFile(content: string, file: string): ChainRun | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+  const record = parsed as Record<string, unknown>;
+  const chain = typeof record.chain === "string" ? record.chain : "";
+  if (!chain) return null;
+  const rawSteps = Array.isArray(record.steps) ? record.steps : [];
+  const steps: ChainRunStep[] = rawSteps.flatMap((rawStep, index) => {
+    if (typeof rawStep !== "object" || rawStep === null) return [];
+    const step = rawStep as Record<string, unknown>;
+    const title =
+      typeof step.title === "string" && step.title.trim()
+        ? step.title.trim()
+        : typeof step.name === "string" && step.name.trim()
+          ? step.name.trim()
+          : `#${index + 1}`;
+    return [
+      {
+        id: typeof step.id === "string" ? step.id : `step-${index}`,
+        title,
+        status: normalizeChainStepStatus(step.status),
+        ...(typeof step.at === "string" ? { at: step.at } : {}),
+      },
+    ];
+  });
+  const statusText =
+    typeof record.status === "string" ? record.status.replace(/[-\s]/g, "").toLowerCase() : "";
+  const status: ChainRun["status"] =
+    statusText === "done" || statusText === "completed"
+      ? "done"
+      : statusText === "failed"
+        ? "failed"
+        : statusText === "paused"
+          ? "paused"
+          : "running";
+  return {
+    chain,
+    title: typeof record.title === "string" && record.title.trim() ? record.title.trim() : chain,
+    status,
+    ...(typeof record.startedAt === "string" ? { startedAt: record.startedAt } : {}),
+    ...(typeof record.updatedAt === "string" ? { updatedAt: record.updatedAt } : {}),
+    steps,
+    file,
+  };
+}
+
+function formatProgressTime(value: string | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (input: number) => String(input).padStart(2, "0");
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const CHAIN_RUN_STATUS_BADGE: Record<
+  ChainRun["status"],
+  { labelId: string; className: string }
+> = {
+  running: { labelId: "research.progress.chain.running", className: "bg-primary/10 text-primary" },
+  done: { labelId: "research.progress.chain.done", className: "bg-hover text-foreground-subtle" },
+  failed: { labelId: "research.progress.chain.failed", className: "bg-destructive/10 text-destructive" },
+  paused: { labelId: "research.progress.chain.paused", className: "bg-hover text-foreground-subtle" },
+};
+
+function StepStatusIcon({ status }: { status: ChainRunStep["status"] }) {
+  if (status === "completed") {
+    return <CheckIcon className="size-3.5 shrink-0 text-primary" strokeWidth={1.33} />;
+  }
+  if (status === "inProgress") {
+    return <LoaderIcon className="size-3.5 shrink-0 animate-spin text-primary" strokeWidth={1.33} />;
+  }
+  if (status === "failed") {
+    return <XIcon className="size-3.5 shrink-0 text-destructive" strokeWidth={1.33} />;
+  }
+  return <CircleIcon className="size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />;
+}
+
+function ProgressPane({
+  workspacePath,
+  activeTaskId,
+  activePlan,
+  fileService,
+  watcher,
+  onError,
+  onOpenActions,
+}: {
+  workspacePath: string;
+  activeTaskId: string | null;
+  activePlan: ReturnType<typeof useActiveTaskPlan>;
+  fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
+  onError: (message: string | null) => void;
+  onOpenActions: () => void;
+}) {
+  const { intl } = useZCodeIntl();
+  const [chainRuns, setChainRuns] = useState<ChainRun[]>([]);
+  const [scanned, setScanned] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const scanRuns = useCallback(() => {
+    let disposed = false;
+    void (async () => {
+      const runs: ChainRun[] = [];
+      try {
+        const entries = await fileService.readdir({
+          path: joinPath(workspacePath, PROGRESS_DIR),
+        });
+        for (const entry of entries) {
+          if (entry.type !== "file" || fileExtension(entry.name) !== "json") continue;
+          try {
+            const slice = await fileService.readTextFile({ path: entry.path, length: 256 * 1024 });
+            if (slice.isBinary) continue;
+            const run = parseChainRunFile(slice.content, entry.path);
+            if (run) runs.push(run);
+          } catch {
+            // 单个状态文件损坏不阻断整体。
+          }
+        }
+      } catch {
+        // 目录不存在：还没有链路跑过。
+      }
+      if (!disposed) {
+        setChainRuns(runs);
+        setScanned(true);
+      }
+    })().catch((scanError: unknown) => {
+      if (!disposed) {
+        onError(scanError instanceof Error ? scanError.message : String(scanError));
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [fileService, workspacePath, onError]);
+
+  useEffect(() => {
+    onError(null);
+    return scanRuns();
+  }, [onError, scanRuns, reloadKey]);
+
+  useDirChangeWatcher(
+    joinPath(workspacePath, PROGRESS_DIR),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
+
+  // 链路状态文件按步骤更新可能连续重写；watcher 防抖之外再加低频轮询兜底。
+  useEffect(() => {
+    const timer = window.setInterval(() => setReloadKey((key) => key + 1), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const planItems = activePlan.plan?.items ?? [];
+  const planCompleted = planItems.filter((item) => item.status === "completed").length;
+  const sortedRuns = useMemo(
+    () =>
+      [...chainRuns].sort((a, b) =>
+        (b.updatedAt ?? b.startedAt ?? "").localeCompare(a.updatedAt ?? a.startedAt ?? ""),
+      ),
+    [chainRuns],
+  );
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
+      <div className="mx-auto w-full max-w-3xl">
+        {/* 实时会话步骤（TodoWrite 投影） */}
+        <div className="mb-2 text-ui-base font-medium text-foreground">
+          {intl.formatMessage({ id: "research.progress.liveTitle" })}
+        </div>
+        {planItems.length > 0 ? (
+          <div className="rounded-[10px] border border-card-border bg-card px-3.5 py-3">
+            <div className="mb-2.5 flex items-center gap-3">
+              <div className="text-ui-sm text-foreground-subtle">
+                {intl.formatMessage(
+                  { id: "research.progress.countLabel" },
+                  { done: planCompleted, total: planItems.length },
+                )}
+              </div>
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-hover">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.round((planCompleted / planItems.length) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <ol className="flex flex-col">
+              {planItems.map((item) => (
+                <li key={item.id} className="flex items-start gap-2.5 py-1.5">
+                  {item.status === "completed" ? (
+                    <CheckIcon
+                      className="mt-0.5 size-3.5 shrink-0 text-primary"
+                      strokeWidth={1.33}
+                    />
+                  ) : item.status === "inProgress" ? (
+                    <LoaderIcon
+                      className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary"
+                      strokeWidth={1.33}
+                    />
+                  ) : (
+                    <CircleIcon
+                      className="mt-0.5 size-3.5 shrink-0 text-foreground-subtlest"
+                      strokeWidth={1.33}
+                    />
+                  )}
+                  <span
+                    className={cn(
+                      "text-ui-sm leading-relaxed",
+                      item.status === "completed"
+                        ? "text-foreground-subtle"
+                        : item.status === "inProgress"
+                          ? "font-medium text-foreground"
+                          : "text-foreground-subtlest",
+                    )}
+                  >
+                    {item.content}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          <div className="rounded-[10px] border border-card-border bg-card px-3.5 py-3 text-ui-sm leading-relaxed text-foreground-subtlest">
+            {activeTaskId
+              ? intl.formatMessage({ id: "research.progress.liveEmptySession" })
+              : intl.formatMessage({ id: "research.progress.liveEmptyNoSession" })}
+          </div>
+        )}
+
+        {/* 链路运行状态（.research/progress/*.json） */}
+        <div className="mt-5 mb-2 text-ui-base font-medium text-foreground">
+          {intl.formatMessage({ id: "research.progress.chainTitle" })}
+        </div>
+        {sortedRuns.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {sortedRuns.map((run) => {
+              const badge = CHAIN_RUN_STATUS_BADGE[run.status];
+              const doneCount = run.steps.filter(
+                (step) => step.status === "completed" || step.status === "skipped",
+              ).length;
+              return (
+                <div
+                  key={run.file}
+                  className="rounded-[10px] border border-card-border bg-card px-3.5 py-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <WorkflowIcon
+                      className="size-4 shrink-0 text-foreground-subtle"
+                      strokeWidth={1.33}
+                    />
+                    <span className="truncate text-ui-sm font-medium text-foreground">
+                      {run.title}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-1.5 py-0.5 text-ui-sm",
+                        badge.className,
+                      )}
+                    >
+                      {intl.formatMessage({ id: badge.labelId })}
+                    </span>
+                    <span className="ml-auto shrink-0 text-ui-sm text-foreground-subtlest">
+                      {formatProgressTime(run.updatedAt ?? run.startedAt)}
+                    </span>
+                  </div>
+                  {run.steps.length > 0 ? (
+                    <ol className="mt-2 flex flex-col">
+                      {run.steps.map((step) => (
+                        <li key={step.id} className="flex items-center gap-2.5 py-1">
+                          <StepStatusIcon status={step.status} />
+                          <span
+                            className={cn(
+                              "text-ui-sm",
+                              step.status === "inProgress"
+                                ? "font-medium text-foreground"
+                                : step.status === "completed"
+                                  ? "text-foreground-subtle"
+                                  : "text-foreground-subtlest",
+                            )}
+                          >
+                            {step.title}
+                          </span>
+                          {step.at ? (
+                            <span className="ml-auto shrink-0 text-ui-sm text-foreground-subtlest">
+                              {formatProgressTime(step.at)}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  <div className="mt-1.5 text-ui-sm text-foreground-subtlest">
+                    {intl.formatMessage(
+                      { id: "research.progress.chainCount" },
+                      { done: doneCount, total: run.steps.length },
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-[10px] border border-card-border bg-card px-3.5 py-3 text-ui-sm leading-relaxed text-foreground-subtlest">
+            {scanned
+              ? intl.formatMessage({ id: "research.progress.chainEmpty" })
+              : intl.formatMessage({ id: "research.loading" })}
+          </div>
+        )}
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-ui-sm"
+            onClick={onOpenActions}
+          >
+            <RocketIcon className="size-3.5" strokeWidth={1.33} />
+            {intl.formatMessage({ id: "research.progress.openActions" })}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1179,7 +1890,7 @@ function LatexWorkbench({
   );
 }
 
-// ── 图表库（图墙 + 图上圈注 + 版本历史指令） ──
+// ── 图表库（图墙 + 图上圈注 + 版本历史翻版） ──
 
 interface FigureItem {
   absPath: string;
@@ -1187,11 +1898,59 @@ interface FigureItem {
   group: string;
 }
 
+/** 版本化图表：policy.png + policy_v2.png + policy_v3.png → 同一条目三个版本。 */
+interface FigureVersion {
+  absPath: string;
+  relPath: string;
+  v: number;
+}
+
+interface FigureEntry {
+  id: string;
+  group: string;
+  base: string;
+  versions: FigureVersion[];
+}
+
 interface AnnotationRect {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/** 解析图表文件名 → (去版本基名, 版本号)；无版本后缀视为 v1。 */
+function parseFigureVersion(fileName: string): { base: string; v: number } {
+  const dot = fileName.lastIndexOf(".");
+  const stem = dot >= 0 ? fileName.slice(0, dot) : fileName;
+  const match = stem.match(FIGURE_VERSION_PATTERN);
+  if (match) {
+    return { base: match[1]!, v: Number.parseInt(match[2]!, 10) };
+  }
+  return { base: stem, v: 1 };
+}
+
+/** 把扫描到的平面文件列表合并成带版本历史的条目。 */
+function buildFigureEntries(items: FigureItem[]): FigureEntry[] {
+  const entries = new Map<string, FigureEntry>();
+  for (const item of items) {
+    const fileName = item.relPath.split("/").pop()!;
+    const { base, v } = parseFigureVersion(fileName);
+    const id = `${item.group}/${base}`;
+    const existing = entries.get(id);
+    const version: FigureVersion = { absPath: item.absPath, relPath: item.relPath, v };
+    if (existing) {
+      existing.versions.push(version);
+    } else {
+      entries.set(id, { id, group: item.group, base, versions: [version] });
+    }
+  }
+  return [...entries.values()]
+    .map((entry) => ({
+      ...entry,
+      versions: [...entry.versions].sort((a, b) => a.v - b.v),
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 function FiguresGallery({
@@ -1210,7 +1969,11 @@ function FiguresGallery({
   const { intl } = useZCodeIntl();
   const [figures, setFigures] = useState<FigureItem[]>([]);
   const [previews, setPreviews] = useState<Record<string, string>>({});
-  const [selected, setSelected] = useState<FigureItem | null>(null);
+  const [versionNotes, setVersionNotes] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<{
+    entry: FigureEntry;
+    versionIndex: number;
+  } | null>(null);
   const [comment, setComment] = useState("");
   const [scanned, setScanned] = useState(false);
   const [watchedRoot, setWatchedRoot] = useState<string | null>(null);
@@ -1224,8 +1987,37 @@ function FiguresGallery({
     onError(null);
     setFigures([]);
     setPreviews({});
+    setVersionNotes({});
     setSelected(null);
     setScanned(false);
+
+    // 图表包同目录的 versions.json（版本备注索引），存在则并入条目版本信息。
+    const loadVersionNotes = async (dirAbs: string) => {
+      try {
+        const slice = await fileService.readTextFile({
+          path: joinPath(dirAbs, "versions.json"),
+          length: 64 * 1024,
+        });
+        if (slice.isBinary) return;
+        const parsed: unknown = JSON.parse(slice.content);
+        if (typeof parsed !== "object" || parsed === null) return;
+        const versions = (parsed as Record<string, unknown>).versions;
+        if (!Array.isArray(versions)) return;
+        const notes: Record<string, string> = {};
+        for (const item of versions) {
+          if (typeof item !== "object" || item === null) continue;
+          const record = item as Record<string, unknown>;
+          const file = typeof record.file === "string" ? record.file : "";
+          const note = typeof record.note === "string" ? record.note.trim() : "";
+          if (file && note) notes[file] = note;
+        }
+        if (!disposed && Object.keys(notes).length > 0) {
+          setVersionNotes((current) => ({ ...current, ...notes }));
+        }
+      } catch {
+        // versions.json 缺失或损坏：版本信息退化为纯文件名。
+      }
+    };
 
     void (async () => {
       const roots = ["figures", "docs/figures", "paper/figures"];
@@ -1301,6 +2093,12 @@ function FiguresGallery({
       setFigures(found);
       setScanned(true);
 
+      // 扫描到的组目录逐一尝试读 versions.json（缺失静默跳过）。
+      const groupDirs = new Set(found.map((figure) => figure.absPath.split("/").slice(0, -1).join("/")));
+      for (const dir of groupDirs) {
+        await loadVersionNotes(dir);
+      }
+
       // 缩略图按需生成：仅前 40 张，防大目录拖垮。
       for (const figure of found.slice(0, 40)) {
         try {
@@ -1334,11 +2132,12 @@ function FiguresGallery({
   );
 
   const grouped = useMemo(() => {
-    const groups = new Map<string, FigureItem[]>();
-    for (const figure of figures) {
-      const list = groups.get(figure.group) ?? [];
-      list.push(figure);
-      groups.set(figure.group, list);
+    const entries = buildFigureEntries(figures);
+    const groups = new Map<string, FigureEntry[]>();
+    for (const entry of entries) {
+      const list = groups.get(entry.group) ?? [];
+      list.push(entry);
+      groups.set(entry.group, list);
     }
     return [...groups.entries()];
   }, [figures]);
@@ -1363,6 +2162,17 @@ function FiguresGallery({
     };
   }, []);
 
+  // 当前查看的版本 + 反馈指令中的「下一版」文件名（版本历史约定：不覆盖，存 _vN+1）。
+  const selectedVersion = selected ? selected.entry.versions[selected.versionIndex]! : null;
+  const nextVersionName = useMemo(() => {
+    if (!selected) return "";
+    const latest = selected.entry.versions[selected.entry.versions.length - 1]!;
+    const dir = latest.relPath.split("/").slice(0, -1).join("/");
+    const extension = fileExtension(latest.relPath.split("/").pop() ?? "");
+    const suffix = extension ? `.${extension}` : "";
+    return dir ? `${dir}/${selected.entry.base}_v${latest.v + 1}${suffix}` : `${selected.entry.base}_v${latest.v + 1}${suffix}`;
+  }, [selected]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
@@ -1381,6 +2191,43 @@ function FiguresGallery({
       </div>
       {selected ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
+          {selected.entry.versions.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {selected.entry.versions.map((version, index) => (
+                <button
+                  key={version.absPath}
+                  type="button"
+                  className={cn(
+                    "rounded-md px-2 py-1 font-mono text-ui-sm transition-colors",
+                    index === selected.versionIndex
+                      ? "bg-primary/10 font-medium text-primary"
+                      : index === selected.entry.versions.length - 1
+                        ? "bg-hover text-foreground-subtle hover:text-foreground"
+                        : "text-foreground-subtlest hover:bg-hover hover:text-foreground",
+                  )}
+                  title={
+                    versionNotes[version.relPath.split("/").pop() ?? ""] ??
+                    version.relPath
+                  }
+                  onClick={() => setSelected({ entry: selected.entry, versionIndex: index })}
+                >
+                  v{version.v}
+                  {index === selected.entry.versions.length - 1
+                    ? intl.formatMessage({ id: "research.figures.latestTag" })
+                    : ""}
+                </button>
+              ))}
+              {versionNotes[
+                selected.entry.versions[selected.versionIndex]!.relPath.split("/").pop() ?? ""
+              ] ? (
+                <span className="ml-1 truncate text-ui-sm text-foreground-subtlest">
+                  {versionNotes[
+                    selected.entry.versions[selected.versionIndex]!.relPath.split("/").pop() ?? ""
+                  ]}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="relative min-h-0 flex-1 overflow-auto rounded-lg border border-card-border bg-card">
             <div
               className="relative inline-block cursor-crosshair"
@@ -1410,15 +2257,17 @@ function FiguresGallery({
                 setDraftRect(null);
               }}
             >
-              {previews[selected.absPath] ? (
+              {previews[selected.entry.versions[selected.versionIndex]!.absPath] ? (
                 <img
-                  src={previews[selected.absPath]}
-                  alt={selected.relPath}
+                  src={previews[selected.entry.versions[selected.versionIndex]!.absPath]}
+                  alt={selected.entry.versions[selected.versionIndex]!.relPath}
                   className="block max-h-[60vh] select-none object-contain"
                   draggable={false}
                 />
               ) : (
-                <div className="p-3 text-ui-sm text-foreground-subtlest">{selected.relPath}</div>
+                <div className="p-3 text-ui-sm text-foreground-subtlest">
+                  {selected.entry.versions[selected.versionIndex]!.relPath}
+                </div>
               )}
               {annotations.map((rect, index) => (
                 <div
@@ -1480,7 +2329,7 @@ function FiguresGallery({
                 void copyPrompt(
                   intl.formatMessage(
                     { id: "research.figures.historyPrompt" },
-                    { path: selected.relPath },
+                    { path: selectedVersion?.relPath ?? "" },
                   ),
                   intl.formatMessage({ id: "research.promptCopied" }),
                 )
@@ -1507,14 +2356,19 @@ function FiguresGallery({
               disabled={!comment.trim()}
               onClick={() => {
                 const annotationText = describeAnnotations(annotations);
+                const promptValues = {
+                  path: selectedVersion?.relPath ?? "",
+                  nextVersion: nextVersionName,
+                  comment: comment.trim(),
+                };
                 const prompt = annotationText
                   ? intl.formatMessage(
                       { id: "research.figures.feedbackPromptWithRegions" },
-                      { path: selected.relPath, comment: comment.trim(), regions: annotationText },
+                      { ...promptValues, regions: annotationText },
                     )
                   : intl.formatMessage(
                       { id: "research.figures.feedbackPrompt" },
-                      { path: selected.relPath, comment: comment.trim() },
+                      promptValues,
                     );
                 void copyPrompt(prompt, intl.formatMessage({ id: "research.promptCopied" }));
               }}
@@ -1541,29 +2395,42 @@ function FiguresGallery({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {items.map((figure) => (
-                  <button
-                    key={figure.absPath}
-                    type="button"
-                    className="flex flex-col overflow-hidden rounded-lg border border-card-border bg-card transition-colors hover:border-primary/50"
-                    onClick={() => setSelected(figure)}
-                  >
-                    <div className="flex h-36 items-center justify-center bg-muted/20">
-                      {previews[figure.absPath] ? (
-                        <img
-                          src={previews[figure.absPath]}
-                          alt={figure.relPath}
-                          className="max-h-36 max-w-full object-contain"
-                        />
-                      ) : (
-                        <ImageIcon className="size-6 text-foreground-subtlest" strokeWidth={1.33} />
-                      )}
-                    </div>
-                    <div className="truncate px-2.5 py-1.5 text-left text-ui-sm text-foreground-subtle">
-                      {figure.relPath.split("/").pop()}
-                    </div>
-                  </button>
-                ))}
+                {items.map((entry) => {
+                  const latest = entry.versions[entry.versions.length - 1]!;
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className="flex flex-col overflow-hidden rounded-lg border border-card-border bg-card transition-colors hover:border-primary/50"
+                      onClick={() =>
+                        setSelected({ entry, versionIndex: entry.versions.length - 1 })
+                      }
+                    >
+                      <div className="flex h-36 items-center justify-center bg-muted/20">
+                        {previews[latest.absPath] ? (
+                          <img
+                            src={previews[latest.absPath]}
+                            alt={latest.relPath}
+                            className="max-h-36 max-w-full object-contain"
+                          />
+                        ) : (
+                          <ImageIcon className="size-6 text-foreground-subtlest" strokeWidth={1.33} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-left text-ui-sm text-foreground-subtle">
+                        <span className="min-w-0 flex-1 truncate">{entry.base}</span>
+                        {entry.versions.length > 1 ? (
+                          <span className="shrink-0 rounded bg-hover px-1.5 py-0.5 font-mono text-ui-sm text-foreground-subtlest">
+                            {intl.formatMessage(
+                              { id: "research.figures.versionCount" },
+                              { count: entry.versions.length },
+                            )}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
                 </div>
               </CollapsibleContent>
             </Collapsible>
@@ -2134,12 +3001,168 @@ function LiteratureLibrary({
   );
 }
 
-// ── 交付物中心（投稿包 / 评审记录 / 文献调研 / 实验证据） ──
+// ── 交付物中心（投稿包 / 评审记录 / 文献调研 / 实验证据 + 成品预览） ──
 
 interface DeliverableRow {
   label: string;
   detail: string;
   path: string;
+  kind: "file" | "directory";
+}
+
+/** markdown-lite：表格沿用台架渲染语义，另支持列表/粗体/行内代码（交付文档预览用）。 */
+function renderInlineMarkdown(text: string): React.ReactNode {
+  // split + 捕获组：每个匹配在结果里贡献 [纯文本, 粗体捕获?, 行内代码捕获?] 三段。
+  const parts = text.split(/\*\*([^*]+)\*\*|`([^`]+)`/g);
+  const nodes: React.ReactNode[] = [];
+  for (let i = 0; i < parts.length; i += 3) {
+    const plain = parts[i];
+    const bold = parts[i + 1];
+    const code = parts[i + 2];
+    if (plain) nodes.push(plain);
+    if (bold) {
+      nodes.push(
+        <strong key={`b-${i}`} className="font-medium text-foreground">
+          {bold}
+        </strong>,
+      );
+    }
+    if (code) {
+      nodes.push(
+        <code key={`c-${i}`} className="rounded bg-hover px-1 py-0.5 font-mono text-ui-sm">
+          {code}
+        </code>,
+      );
+    }
+  }
+  return nodes;
+}
+
+function renderMarkdownDocument(content: string): React.ReactNode {
+  const nodes: React.ReactNode[] = [];
+  const lines = content.split("\n");
+  let index = 0;
+  let key = 0;
+  while (index < lines.length) {
+    const line = lines[index]!;
+    if (line.trim().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (index < lines.length && lines[index]!.trim().startsWith("|")) {
+        tableLines.push(lines[index]!.trim());
+        index += 1;
+      }
+      const rows = tableLines
+        .map((rowLine) =>
+          rowLine
+            .split("|")
+            .slice(1, -1)
+            .map((cell) => cell.trim()),
+        )
+        .filter((cells) => !cells.every((cell) => /^:?-{2,}:?$/.test(cell) || cell === ""));
+      if (rows.length > 0) {
+        nodes.push(
+          <div key={key++} className="my-3 overflow-x-auto rounded-lg border border-card-border">
+            <table className="w-full border-collapse text-ui-sm">
+              <thead>
+                <tr className="bg-hover/40">
+                  {rows[0]!.map((cell, cellIndex) => (
+                    <th
+                      key={cellIndex}
+                      className="border-b border-card-border px-2.5 py-1.5 text-left font-medium text-foreground-subtle"
+                    >
+                      {renderInlineMarkdown(cell)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(1).map((cells, rowIndex) => (
+                  <tr key={rowIndex} className="odd:bg-hover/15">
+                    {cells.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="border-b border-card-border/60 px-2.5 py-1.5">
+                        {renderInlineMarkdown(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+        );
+      }
+      continue;
+    }
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      nodes.push(
+        <div
+          key={key++}
+          className={cn(
+            "mt-4 mb-1 font-medium text-foreground",
+            headingMatch[1]!.length <= 2 ? "text-ui-base" : "text-ui-sm",
+          )}
+        >
+          {renderInlineMarkdown(headingMatch[2]!)}
+        </div>,
+      );
+      index += 1;
+      continue;
+    }
+    const listMatch = line.match(/^\s*([-*+]|\d+\.)\s+(.*)$/);
+    if (listMatch) {
+      const items: string[] = [];
+      const ordered = /\d+\./.test(listMatch[1]!);
+      while (index < lines.length) {
+        const itemMatch = lines[index]!.match(/^\s*([-*+]|\d+\.)\s+(.*)$/);
+        if (!itemMatch) break;
+        items.push(itemMatch[2]!);
+        index += 1;
+      }
+      const ListTag = ordered ? "ol" : "ul";
+      nodes.push(
+        <ListTag
+          key={key++}
+          className={cn(
+            "my-1.5 pl-5 text-ui-sm leading-relaxed text-foreground-subtle",
+            ordered ? "list-decimal" : "list-disc",
+          )}
+        >
+          {items.map((item, itemIndex) => (
+            <li key={itemIndex} className="my-0.5">
+              {renderInlineMarkdown(item)}
+            </li>
+          ))}
+        </ListTag>,
+      );
+      continue;
+    }
+    if (line.trim() === "") {
+      index += 1;
+      continue;
+    }
+    const paragraphLines: string[] = [];
+    while (
+      index < lines.length &&
+      lines[index]!.trim() !== "" &&
+      !lines[index]!.trim().startsWith("|") &&
+      !lines[index]!.match(/^#{1,6}\s+/) &&
+      !lines[index]!.match(/^\s*([-*+]|\d+\.)\s+/)
+    ) {
+      paragraphLines.push(lines[index]!);
+      index += 1;
+    }
+    nodes.push(
+      <p key={key++} className="my-1.5 text-ui-sm leading-relaxed text-foreground-subtle">
+        {renderInlineMarkdown(paragraphLines.join(" "))}
+      </p>,
+    );
+  }
+  return nodes;
+}
+
+interface DeliverablePreviewState {
+  path: string;
+  name: string;
 }
 
 function DeliverablesCenter({
@@ -2159,6 +3182,9 @@ function DeliverablesCenter({
   const [rows, setRows] = useState<DeliverableRow[]>([]);
   const [scanned, setScanned] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [expandedDir, setExpandedDir] = useState<string | null>(null);
+  const [dirChildren, setDirChildren] = useState<DeliverableRow[]>([]);
+  const [preview, setPreview] = useState<DeliverablePreviewState | null>(null);
 
   useDirChangeWatcher(
     joinPath(workspacePath, "paper"),
@@ -2183,7 +3209,12 @@ function DeliverablesCenter({
         }
         for (const entry of entries) {
           if (entry.type !== "file") continue;
-          loaded.push({ label, detail: `${dirRel}/${entry.name}`, path: entry.path });
+          loaded.push({
+            label,
+            detail: `${dirRel}/${entry.name}`,
+            path: entry.path,
+            kind: "file",
+          });
         }
       };
 
@@ -2202,6 +3233,7 @@ function DeliverablesCenter({
             label: intl.formatMessage({ id: "research.deliverables.reviews" }),
             detail: `paper/reviews/${entry.name}/`,
             path: entry.path,
+            kind: "directory",
           });
         }
       } catch {
@@ -2215,10 +3247,29 @@ function DeliverablesCenter({
             label: intl.formatMessage({ id: "research.deliverables.lit" }),
             detail: `docs/lit/${entry.name}/`,
             path: entry.path,
+            kind: "directory",
           });
         }
       } catch {
         // 无文献调研。
+      }
+      // 论文主产物（paper/ 顶层 pdf）
+      try {
+        const paperEntries = await fileService.readdir({
+          path: joinPath(workspacePath, "paper"),
+        });
+        for (const entry of paperEntries) {
+          if (entry.type === "file" && fileExtension(entry.name) === "pdf") {
+            loaded.push({
+              label: intl.formatMessage({ id: "research.deliverables.paper" }),
+              detail: `paper/${entry.name}`,
+              path: entry.path,
+              kind: "file",
+            });
+          }
+        }
+      } catch {
+        // 无 paper/ 目录。
       }
       // 实验证据（计数行）
       try {
@@ -2234,6 +3285,7 @@ function DeliverablesCenter({
               { count },
             ),
             path: joinPath(workspacePath, "experiments"),
+            kind: "directory",
           });
         }
       } catch {
@@ -2251,6 +3303,115 @@ function DeliverablesCenter({
       disposed = true;
     };
   }, [workspacePath, fileService, reloadKey, onError, intl]);
+
+  // 目录行展开：拉一层子文件（目录不再下钻）。
+  useEffect(() => {
+    if (!expandedDir) {
+      setDirChildren([]);
+      return undefined;
+    }
+    let disposed = false;
+    void (async () => {
+      try {
+        const entries = await fileService.readdir({ path: expandedDir });
+        if (disposed) return;
+        const children = entries
+          .filter((entry) => entry.type === "file")
+          .map((entry) => ({
+            label: "",
+            detail: entry.path.split("/").slice(-2).join("/"),
+            path: entry.path,
+            kind: "file" as const,
+          }));
+        setDirChildren(children);
+      } catch {
+        if (!disposed) setDirChildren([]);
+      }
+    })().catch(() => {
+      if (!disposed) setDirChildren([]);
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [expandedDir, fileService]);
+
+  const renderRow = (row: DeliverableRow) => {
+    const isExpandedDir = row.kind === "directory" && expandedDir === row.path;
+    return (
+      <div key={row.path}>
+        <div className="group flex w-full items-center gap-2 rounded-[10px] border border-card-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/50">
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2.5"
+            onClick={() => {
+              if (row.kind === "directory") {
+                setExpandedDir(isExpandedDir ? null : row.path);
+                setPreview(null);
+              } else {
+                setPreview({ path: row.path, name: row.detail.split("/").pop() ?? row.detail });
+              }
+            }}
+          >
+            {row.kind === "directory" ? (
+              isExpandedDir ? (
+                <ChevronDownIcon className="size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
+              ) : (
+                <ChevronRightIcon className="size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
+              )
+            ) : (
+              <FileDisplayIcon
+                src={resolveFileDisplayDescriptor(row.path).fileIconSrc}
+                size={16}
+                className="shrink-0"
+              />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-ui-sm text-foreground">{row.detail}</span>
+              {row.label ? (
+                <span className="block truncate text-ui-sm text-foreground-subtlest">
+                  {row.label}
+                </span>
+              ) : null}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="shrink-0 rounded p-1 text-foreground-subtlest opacity-0 transition-opacity group-hover:opacity-100 hover:bg-hover hover:text-foreground"
+            title={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
+            onClick={() =>
+              void copyPrompt(row.path, intl.formatMessage({ id: "research.deliverables.pathCopied" }))
+            }
+          >
+            <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
+          </button>
+        </div>
+        {isExpandedDir
+          ? dirChildren.map((child) => (
+              <div
+                key={child.path}
+                className="ml-5 mt-1 flex items-center gap-2.5 rounded-[10px] border border-card-border/60 bg-card/60 px-3 py-1.5 transition-colors hover:border-primary/50"
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  onClick={() =>
+                    setPreview({ path: child.path, name: child.detail.split("/").pop() ?? child.detail })
+                  }
+                >
+                  <FileDisplayIcon
+                    src={resolveFileDisplayDescriptor(child.path).fileIconSrc}
+                    size={14}
+                    className="shrink-0"
+                  />
+                  <span className="truncate text-ui-sm text-foreground-subtle">{child.detail}</span>
+                  <EyeIcon className="ml-auto size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
+                </button>
+              </div>
+            ))
+          : null}
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -2281,34 +3442,157 @@ function DeliverablesCenter({
           {intl.formatMessage({ id: "research.deliverables.runSubmit" })}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-6">
-        <div className="mx-auto w-full max-w-3xl">
-          {rows.map((row) => (
-            <button
-              key={row.path}
-              type="button"
-              className="mb-2 flex w-full items-center gap-3 rounded-[10px] border border-card-border bg-card px-3 py-3 text-left transition-colors hover:border-primary/50"
-              onClick={() =>
-                void copyPrompt(
-                  row.path,
-                  intl.formatMessage({ id: "research.deliverables.pathCopied" }),
-                )
-              }
-              title={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
-            >
-              <PackageIcon className="size-4 shrink-0 text-foreground-subtle" strokeWidth={1.33} />
-              <div className="min-w-0">
-                <div className="truncate text-ui-sm">{row.detail}</div>
-                <div className="truncate text-ui-sm text-foreground-subtle">{row.label}</div>
+      {preview ? (
+        <DeliverablePreview
+          path={preview.path}
+          name={preview.name}
+          fileService={fileService}
+          onClose={() => setPreview(null)}
+          onError={onError}
+        />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-6">
+          <div className="mx-auto w-full max-w-3xl">
+            {rows.map(renderRow)}
+            {scanned && rows.length === 0 ? (
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
+                {intl.formatMessage({ id: "research.deliverables.empty" })}
               </div>
-            </button>
-          ))}
-          {scanned && rows.length === 0 ? (
-            <div className="p-3 text-ui-sm text-foreground-subtlest">
-              {intl.formatMessage({ id: "research.deliverables.empty" })}
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 交付物预览浮层：PDF / 图片 / markdown 文档 / 文本 / zip 占位，全内嵌。 */
+function DeliverablePreview({
+  path,
+  name,
+  fileService,
+  onClose,
+  onError,
+}: {
+  path: string;
+  name: string;
+  fileService: FileServiceLike;
+  onClose: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const { intl } = useZCodeIntl();
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [markdown, setMarkdown] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(null);
+  const [zipInfo, setZipInfo] = useState<{ size: number } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+    setImageDataUrl(null);
+    setPdfBytes(null);
+    setMarkdown(null);
+    setText(null);
+    setZipInfo(null);
+    setFailed(false);
+    const extension = fileExtension(name);
+    void (async () => {
+      try {
+        if (IMAGE_EXTENSIONS.has(extension)) {
+          const media = await fileService.readMediaPreview({ path, maxBytes: 8 * 1024 * 1024 });
+          if (!disposed) {
+            setImageDataUrl(`data:${media.mediaType};base64,${media.dataBase64}`);
+          }
+        } else if (extension === "pdf") {
+          const whole = await readWholeFile(fileService, path, OVERLAY_PDF_MAX_BYTES);
+          if (!disposed) {
+            if (whole) setPdfBytes(whole);
+            else setFailed(true);
+          }
+        } else if (extension === "md") {
+          const slice = await fileService.readTextFile({ path, length: TEXT_PREVIEW_LIMIT_BYTES });
+          if (!disposed) {
+            if (slice.isBinary) setFailed(true);
+            else setMarkdown(slice.content);
+          }
+        } else if (extension === "zip") {
+          const stat = await fileService.stat({ path });
+          if (!disposed) {
+            if (typeof stat.size === "number") setZipInfo({ size: stat.size });
+            else setFailed(true);
+          }
+        } else {
+          const slice = await fileService.readTextFile({ path, length: TEXT_PREVIEW_LIMIT_BYTES });
+          if (!disposed) {
+            if (slice.isBinary) setFailed(true);
+            else setText(slice.content);
+          }
+        }
+      } catch {
+        if (!disposed) setFailed(true);
+      }
+    })().catch((loadError: unknown) => {
+      if (!disposed) onError(loadError instanceof Error ? loadError.message : String(loadError));
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [path, name, fileService, onError]);
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-card-border bg-card px-3 py-2">
+        <EyeIcon className="size-3.5 shrink-0 text-foreground-subtle" strokeWidth={1.33} />
+        <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground" title={path}>
+          {name}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 shrink-0 p-0"
+          onClick={onClose}
+          aria-label={intl.formatMessage({ id: "research.viewer.close" })}
+        >
+          <XIcon className="size-4" />
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto p-3">
+        {imageDataUrl ? (
+          <img src={imageDataUrl} alt={name} className="mx-auto max-h-full object-contain" />
+        ) : pdfBytes ? (
+          <Suspense
+            fallback={
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
+                {intl.formatMessage({ id: "research.pdf.loading" })}
+              </div>
+            }
+          >
+            <PdfViewer source={pdfBytes} className="h-full" />
+          </Suspense>
+        ) : markdown != null ? (
+          <div className="mx-auto max-w-3xl">{renderMarkdownDocument(markdown)}</div>
+        ) : text != null ? (
+          <pre className="font-mono text-ui-sm leading-relaxed whitespace-pre-wrap">{text}</pre>
+        ) : zipInfo ? (
+          <div className="flex flex-col items-center gap-2 p-6 text-ui-sm text-foreground-subtle">
+            <PackageIcon className="size-8 text-foreground-subtlest" strokeWidth={1.33} />
+            <div>
+              {intl.formatMessage(
+                { id: "research.deliverables.zipInfo" },
+                { size: (zipInfo.size / (1024 * 1024)).toFixed(1) },
+              )}
+            </div>
+          </div>
+        ) : failed ? (
+          <div className="p-3 text-ui-sm text-foreground-subtlest">
+            {intl.formatMessage({ id: "research.viewer.unsupported" })}
+          </div>
+        ) : (
+          <div className="p-3 text-ui-sm text-foreground-subtlest">
+            {intl.formatMessage({ id: "research.loading" })}
+          </div>
+        )}
       </div>
     </div>
   );

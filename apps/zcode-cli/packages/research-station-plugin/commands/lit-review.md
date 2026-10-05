@@ -20,3 +20,16 @@ description: 文献链 — 主题综述 + 引文热度 + 创新性核查，一�
 
 规则：引用必须真实（核验 DOI/标题）；查不到的直接标注不存在；
 结尾给"这三篇最值得精读"并说明理由。完成后把缺口清单要点汇报给用户。
+
+---
+
+## 进度上报（工作台「进度」页实时显示）
+
+启动链路时创建 `.research/progress/lit-review.json`（目录不存在先建），之后每步状态变化都更新它；结束置终态。steps 数组 = 本命令的编号步骤（id 用步骤短名，title 用中文步骤名）：
+
+```json
+{"chain":"lit-review","title":"<链路中文名>","status":"running","startedAt":"<ISO8601>","updatedAt":"<ISO8601>","steps":[{"id":"lit","title":"文献综述","status":"completed","at":"<ISO8601>"},{"id":"plan","title":"研究计划","status":"in_progress"}]}
+```
+
+- status：链路级 `running | done | failed | paused`；步骤级 `pending | in_progress | completed | failed | skipped`
+- 每次更新都写 updatedAt；失败时把当前步骤置 failed 并在链路级同步 failed

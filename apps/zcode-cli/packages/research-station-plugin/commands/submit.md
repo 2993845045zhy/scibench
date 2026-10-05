@@ -18,3 +18,16 @@ description: 投稿链 — 标题摘要提炼 + 期刊/会议匹配 + 一键打�
 汇报：三件产物路径 + "投稿前人工必查清单"（作者信息/单位/基金/格式页数/伦理声明）。
 规则：投稿信息以官网为准；deadline 显示"截至查询时刻"，提醒用户自行复核。
 打包完成 ≠ 可投，最终决定权在用户。
+
+---
+
+## 进度上报（工作台「进度」页实时显示）
+
+启动链路时创建 `.research/progress/submit.json`（目录不存在先建），之后每步状态变化都更新它；结束置终态。steps 数组 = 本命令的编号步骤（id 用步骤短名，title 用中文步骤名）：
+
+```json
+{"chain":"submit","title":"<链路中文名>","status":"running","startedAt":"<ISO8601>","updatedAt":"<ISO8601>","steps":[{"id":"lit","title":"文献综述","status":"completed","at":"<ISO8601>"},{"id":"plan","title":"研究计划","status":"in_progress"}]}
+```
+
+- status：链路级 `running | done | failed | paused`；步骤级 `pending | in_progress | completed | failed | skipped`
+- 每次更新都写 updatedAt；失败时把当前步骤置 failed 并在链路级同步 failed

@@ -1459,6 +1459,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       onCloseCodeViewer={handleCloseCodeViewer}
       onCloseGit={handleCloseGit}
       onActivateTab={handleActivateSidePaneTab}
+      onSelectTask={handleSelectTaskInChat}
       onReorderTab={handleReorderSidePaneTab}
       onCloseTab={handleCloseSidePaneTab}
       onCloseOtherTabs={handleCloseOtherSidePaneTabs}

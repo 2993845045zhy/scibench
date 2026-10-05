@@ -23,3 +23,16 @@ description: 组会/周报链 — 汇编实验卡+台架结果+git 进展+项目
 
 规则：只引用证据卡和结果文档里真实存在的数字；没有数据的进展不写；
 导师视角措辞（讲清"为什么判负也有价值"）。
+
+---
+
+## 进度上报（工作台「进度」页实时显示）
+
+启动链路时创建 `.research/progress/report.json`（目录不存在先建），之后每步状态变化都更新它；结束置终态。steps 数组 = 本命令的编号步骤（id 用步骤短名，title 用中文步骤名）：
+
+```json
+{"chain":"report","title":"<链路中文名>","status":"running","startedAt":"<ISO8601>","updatedAt":"<ISO8601>","steps":[{"id":"lit","title":"文献综述","status":"completed","at":"<ISO8601>"},{"id":"plan","title":"研究计划","status":"in_progress"}]}
+```
+
+- status：链路级 `running | done | failed | paused`；步骤级 `pending | in_progress | completed | failed | skipped`
+- 每次更新都写 updatedAt；失败时把当前步骤置 failed 并在链路级同步 failed

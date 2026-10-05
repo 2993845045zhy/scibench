@@ -307,6 +307,7 @@ export function AnimatedSidePanePanel({
   onCloseCodeViewer,
   onCloseGit,
   onActivateTab,
+  onSelectTask,
   onReorderTab,
   onCloseTab,
   onCloseOtherTabs,
@@ -373,6 +374,13 @@ export function AnimatedSidePanePanel({
   onCloseCodeViewer: () => void;
   onCloseGit: () => void;
   onActivateTab: (tabId: string) => void;
+  /** 科研工作台操作台新建会话后导航到该会话（参数对齐 handleSelectTaskInChat）。 */
+  onSelectTask?: (
+    workspacePath: string,
+    taskId: string,
+    workspaceIdentity?: string,
+    remoteSessionId?: string,
+  ) => void;
   onReorderTab: (activeTabId: string, overTabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseOtherTabs: (tabId: string) => void;
@@ -1257,6 +1265,8 @@ export function AnimatedSidePanePanel({
                             workspacePath={workspaceAbsPath}
                             workspaceIdentity={workspaceIdentity}
                             remoteSessionId={workspaceRemoteSessionId}
+                            activeTaskId={activeTaskId}
+                            onSelectTask={onSelectTask}
                           />
                         ) : tab.type === "model-trajectory" ? (
                           <ModelTrajectoryPane

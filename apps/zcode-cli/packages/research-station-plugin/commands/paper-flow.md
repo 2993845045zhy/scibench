@@ -25,3 +25,16 @@ description: 全链路无人值守 — 文献→计划→写作→验证→评�
 产物汇总：`paper/flow-report.md`（六站状态 + 产物清单 + 遗留 TODO）。
 中断恢复：重跑 /paper-flow 继续 自动从 flow-state.md 断点接力。
 时长提示：全链路含多次 LLM/MCP 调用，预计 30~90 分钟，期间可随时插话。
+
+---
+
+## 进度上报（工作台「进度」页实时显示）
+
+启动链路时创建 `.research/progress/paper-flow.json`（目录不存在先建），之后每步状态变化都更新它；结束置终态。steps 数组 = 本命令的编号步骤（id 用步骤短名，title 用中文步骤名）：
+
+```json
+{"chain":"paper-flow","title":"<链路中文名>","status":"running","startedAt":"<ISO8601>","updatedAt":"<ISO8601>","steps":[{"id":"lit","title":"文献综述","status":"completed","at":"<ISO8601>"},{"id":"plan","title":"研究计划","status":"in_progress"}]}
+```
+
+- status：链路级 `running | done | failed | paused`；步骤级 `pending | in_progress | completed | failed | skipped`
+- 每次更新都写 updatedAt；失败时把当前步骤置 failed 并在链路级同步 failed

@@ -20,3 +20,16 @@ description: 评审链 — 模拟同行评审 + 润色检查 + 逐条回应表�
 5. 汇报：给"三条必须先改的 major"，问用户是否按回应表执行修改
 
 规则：意见是模拟生成的决策辅助，不是真实审稿人立场——产物页首必须带此声明。
+
+---
+
+## 进度上报（工作台「进度」页实时显示）
+
+启动链路时创建 `.research/progress/peer-review.json`（目录不存在先建），之后每步状态变化都更新它；结束置终态。steps 数组 = 本命令的编号步骤（id 用步骤短名，title 用中文步骤名）：
+
+```json
+{"chain":"peer-review","title":"<链路中文名>","status":"running","startedAt":"<ISO8601>","updatedAt":"<ISO8601>","steps":[{"id":"lit","title":"文献综述","status":"completed","at":"<ISO8601>"},{"id":"plan","title":"研究计划","status":"in_progress"}]}
+```
+
+- status：链路级 `running | done | failed | paused`；步骤级 `pending | in_progress | completed | failed | skipped`
+- 每次更新都写 updatedAt；失败时把当前步骤置 failed 并在链路级同步 failed
