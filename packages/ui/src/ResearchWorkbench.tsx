@@ -2,8 +2,9 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   ActivityIcon,
   ArrowLeftIcon,
+  ArrowRightIcon,
   BookOpenIcon,
-  CheckIcon,
+  CheckCircle2Icon,
   ChevronDownIcon,
   ChevronRightIcon,
   CircleIcon,
@@ -24,6 +25,7 @@ import {
   PlayIcon,
   RefreshCwIcon,
   RocketIcon,
+  TriangleAlertIcon,
   WorkflowIcon,
   XIcon,
 } from "lucide-react";
@@ -43,6 +45,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable.js";
 import { CodeViewer, findCodeViewerLineElement } from "@/components/ui/code-viewer.js";
+import { Progress } from "@/components/ui/progress.js";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible.js";
 import { Spinner } from "@/components/ui/spinner.js";
 import { PreviewPane } from "@/PreviewPane.js";
@@ -744,37 +747,38 @@ function OverviewPane({
         {planItems.length > 0 ? (
           <button
             type="button"
-            className="mb-5 flex w-full items-center gap-3 rounded-[10px] border border-card-border bg-card px-3.5 py-3 text-left transition-colors hover:border-primary/50"
+            className="mb-5 flex w-full flex-col gap-2 rounded-xl border border-card-border bg-background p-3 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
             onClick={() => onNavigate("progress")}
           >
-            <LoaderIcon
-              className="size-4 shrink-0 animate-spin text-primary"
-              strokeWidth={1.33}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="text-ui-sm font-medium text-foreground">
-                {intl.formatMessage(
-                  { id: "research.progress.summaryTitle" },
-                  { done: planCompleted, total: planItems.length },
+            <div className="flex items-center gap-1.5">
+              <span className="text-ui-base font-medium leading-5 text-foreground">
+                {intl.formatMessage({ id: "research.progress.liveTitle" })}
+              </span>
+              <span
+                className={cn(
+                  "text-ui-base tabular-nums",
+                  planCompleted >= planItems.length
+                    ? "text-success"
+                    : "text-foreground-subtle",
                 )}
-              </div>
-              <div className="truncate text-ui-sm text-foreground-subtle">
-                {planCurrent?.content ?? planItems[planItems.length - 1]!.content}
-              </div>
+              >
+                {planCompleted}/{planItems.length}
+              </span>
             </div>
-            <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-hover">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${Math.round((planCompleted / planItems.length) * 100)}%` }}
-              />
-            </div>
+            <Progress
+              value={Math.round((planCompleted / planItems.length) * 100)}
+              className="h-1"
+            />
+            <span className="truncate text-ui-base font-normal leading-5 text-foreground-subtle">
+              {planCurrent?.content ?? planItems[planItems.length - 1]!.content}
+            </span>
           </button>
         ) : null}
 
-        <div className="mb-2 text-ui-base font-medium text-foreground">
+        <h2 className="mb-1 text-ui-base font-medium leading-5 text-foreground-subtle">
           {intl.formatMessage({ id: "research.actions.title" })}
-        </div>
-        <div className="mb-1.5 text-ui-sm text-foreground-subtle">
+        </h2>
+        <p className="mb-3 text-ui-base font-normal leading-5 text-foreground-subtlest">
           {intl.formatMessage(
             { id: "research.actions.hint" },
             {
@@ -783,9 +787,10 @@ function OverviewPane({
                 : intl.formatMessage({ id: "research.actions.targetNew" }),
             },
           )}
-        </div>
+        </p>
         {launcher.error ? (
-          <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-ui-sm text-destructive">
+          <div className="mb-3 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-ui-base text-destructive">
+            <TriangleAlertIcon className="size-4 shrink-0" strokeWidth={1.33} aria-hidden />
             {intl.formatMessage(
               { id: "research.actions.launchFailed" },
               { reason: launcher.error.code },
@@ -807,9 +812,9 @@ function OverviewPane({
           ))}
         </div>
 
-        <div className="mt-5 mb-2 text-ui-base font-medium text-foreground">
+        <h2 className="mt-5 mb-2 text-ui-base font-medium leading-5 text-foreground-subtle">
           {intl.formatMessage({ id: "research.actions.quickLinks" })}
-        </div>
+        </h2>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -860,18 +865,25 @@ function ChainActionCard({
   const { intl } = useZCodeIntl();
   const title = intl.formatMessage({ id: titleId });
   return (
-    <div className="flex flex-col rounded-[10px] border border-card-border bg-card px-3.5 py-3">
-      <div className="flex items-center gap-2">
-        <RocketIcon className="size-4 shrink-0 text-primary" strokeWidth={1.33} />
-        <span className="text-ui-sm font-medium text-foreground">{title}</span>
-        <span className="ml-auto shrink-0 rounded bg-hover px-1.5 py-0.5 font-mono text-ui-sm text-foreground-subtlest">
+    // 卡片骨架对齐官方自动化/模板卡：rounded-xl + border-card-border + bg-background + hover:bg-hover。
+    <div className="flex h-full flex-col gap-2 rounded-xl border border-card-border bg-background p-3 text-left">
+      <div className="flex min-w-0 items-center gap-2">
+        <RocketIcon
+          className="size-4 shrink-0 text-foreground-subtle"
+          strokeWidth={1.33}
+          aria-hidden
+        />
+        <span className="min-w-0 truncate text-ui-base font-medium leading-5 text-foreground">
+          {title}
+        </span>
+        <span className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 text-ui-base font-normal text-foreground-subtle">
           {command}
         </span>
       </div>
-      <div className="mt-1.5 text-ui-sm leading-relaxed text-foreground-subtle">
+      <p className="text-wrap-phrase line-clamp-2 text-ui-base font-normal leading-5 text-foreground-subtle">
         {intl.formatMessage({ id: descId })}
-      </div>
-      <div className="mt-2.5 flex items-center gap-2">
+      </p>
+      <div className="mt-auto flex items-center gap-2">
         {arg ? (
           <Input
             value={argValue}
@@ -895,7 +907,10 @@ function ChainActionCard({
           onClick={onRun}
         >
           {pending ? (
-            <LoaderIcon className="size-3.5 animate-spin" strokeWidth={1.33} />
+            <LoaderIcon
+              className="size-3.5 animate-spin motion-reduce:animate-none"
+              strokeWidth={1.33}
+            />
           ) : (
             <PlayIcon className="size-3.5" strokeWidth={1.33} />
           )}
@@ -993,27 +1008,56 @@ function formatProgressTime(value: string | undefined): string {
   return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const CHAIN_RUN_STATUS_BADGE: Record<
+const CHAIN_RUN_STATUS_META: Record<
   ChainRun["status"],
-  { labelId: string; className: string }
+  { labelId: string; icon: () => React.ReactNode; labelClassName: string }
 > = {
-  running: { labelId: "research.progress.chain.running", className: "bg-primary/10 text-primary" },
-  done: { labelId: "research.progress.chain.done", className: "bg-hover text-foreground-subtle" },
-  failed: { labelId: "research.progress.chain.failed", className: "bg-destructive/10 text-destructive" },
-  paused: { labelId: "research.progress.chain.paused", className: "bg-hover text-foreground-subtle" },
+  running: {
+    labelId: "research.progress.chain.running",
+    icon: () => (
+      <LoaderIcon
+        className="size-4 animate-spin text-foreground motion-reduce:animate-none"
+        strokeWidth={1.33}
+        aria-hidden
+      />
+    ),
+    labelClassName: "text-foreground-subtle",
+  },
+  done: {
+    labelId: "research.progress.chain.done",
+    icon: () => (
+      <CheckCircle2Icon className="size-4 text-success" strokeWidth={1.33} aria-hidden />
+    ),
+    labelClassName: "text-success",
+  },
+  failed: {
+    labelId: "research.progress.chain.failed",
+    icon: () => (
+      <TriangleAlertIcon className="size-4 text-destructive" strokeWidth={1.33} aria-hidden />
+    ),
+    labelClassName: "text-destructive",
+  },
+  paused: {
+    labelId: "research.progress.chain.paused",
+    icon: () => (
+      <CircleIcon className="size-4 text-foreground-subtlest" strokeWidth={1.33} aria-hidden />
+    ),
+    labelClassName: "text-foreground-subtle",
+  },
 };
 
+/** 步骤行图标对齐官方 PlanStatusIcon：完成=success 勾、进行中=foreground 箭头、待办=subtlest 空心圆。 */
 function StepStatusIcon({ status }: { status: ChainRunStep["status"] }) {
   if (status === "completed") {
-    return <CheckIcon className="size-3.5 shrink-0 text-primary" strokeWidth={1.33} />;
+    return <CheckCircle2Icon className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />;
   }
   if (status === "inProgress") {
-    return <LoaderIcon className="size-3.5 shrink-0 animate-spin text-primary" strokeWidth={1.33} />;
+    return <ArrowRightIcon className="mt-0.5 size-3.5 shrink-0 text-foreground" aria-hidden />;
   }
   if (status === "failed") {
-    return <XIcon className="size-3.5 shrink-0 text-destructive" strokeWidth={1.33} />;
+    return <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-destructive" aria-hidden />;
   }
-  return <CircleIcon className="size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />;
+  return <CircleIcon className="mt-0.5 size-3.5 shrink-0 text-foreground-subtlest" aria-hidden />;
 }
 
 function ProgressPane({
@@ -1104,55 +1148,44 @@ function ProgressPane({
   return (
     <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
       <div className="mx-auto w-full max-w-3xl">
-        {/* 实时会话步骤（TodoWrite 投影） */}
-        <div className="mb-2 text-ui-base font-medium text-foreground">
-          {intl.formatMessage({ id: "research.progress.liveTitle" })}
+        {/* 实时会话步骤（TodoWrite 投影）：行样式对齐官方状态面板计划列表。 */}
+        <div className="flex h-8 items-center gap-1.5">
+          <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
+            {intl.formatMessage({ id: "research.progress.liveTitle" })}
+          </h2>
+          {planItems.length > 0 ? (
+            <span
+              className={cn(
+                "text-ui-base tabular-nums",
+                planCompleted >= planItems.length
+                  ? "text-success"
+                  : "text-foreground-subtle",
+              )}
+            >
+              {planCompleted}/{planItems.length}
+            </span>
+          ) : null}
         </div>
         {planItems.length > 0 ? (
-          <div className="rounded-[10px] border border-card-border bg-card px-3.5 py-3">
-            <div className="mb-2.5 flex items-center gap-3">
-              <div className="text-ui-sm text-foreground-subtle">
-                {intl.formatMessage(
-                  { id: "research.progress.countLabel" },
-                  { done: planCompleted, total: planItems.length },
-                )}
-              </div>
-              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-hover">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{
-                    width: `${Math.round((planCompleted / planItems.length) * 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-            <ol className="flex flex-col">
+          <div className="flex flex-col gap-2">
+            <Progress
+              value={Math.round((planCompleted / planItems.length) * 100)}
+              className="h-1"
+            />
+            <ol className="m-0 flex list-none flex-col p-0">
               {planItems.map((item) => (
-                <li key={item.id} className="flex items-start gap-2.5 py-1.5">
-                  {item.status === "completed" ? (
-                    <CheckIcon
-                      className="mt-0.5 size-3.5 shrink-0 text-primary"
-                      strokeWidth={1.33}
-                    />
-                  ) : item.status === "inProgress" ? (
-                    <LoaderIcon
-                      className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary"
-                      strokeWidth={1.33}
-                    />
-                  ) : (
-                    <CircleIcon
-                      className="mt-0.5 size-3.5 shrink-0 text-foreground-subtlest"
-                      strokeWidth={1.33}
-                    />
-                  )}
+                <li
+                  key={item.id}
+                  className="flex min-h-8 items-start gap-2 rounded-lg px-2 py-1.5 text-ui-base hover:bg-hover"
+                >
+                  <StepStatusIcon status={item.status} />
                   <span
+                    title={item.content}
                     className={cn(
-                      "text-ui-sm leading-relaxed",
+                      "line-clamp-2 min-w-0 flex-1 break-words leading-5",
                       item.status === "completed"
-                        ? "text-foreground-subtle"
-                        : item.status === "inProgress"
-                          ? "font-medium text-foreground"
-                          : "text-foreground-subtlest",
+                        ? "text-foreground-subtlest line-through"
+                        : "text-foreground",
                     )}
                   >
                     {item.content}
@@ -1162,7 +1195,7 @@ function ProgressPane({
             </ol>
           </div>
         ) : (
-          <div className="rounded-[10px] border border-card-border bg-card px-3.5 py-3 text-ui-sm leading-relaxed text-foreground-subtlest">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
             {activeTaskId
               ? intl.formatMessage({ id: "research.progress.liveEmptySession" })
               : intl.formatMessage({ id: "research.progress.liveEmptyNoSession" })}
@@ -1170,60 +1203,72 @@ function ProgressPane({
         )}
 
         {/* 链路运行状态（.research/progress/*.json） */}
-        <div className="mt-5 mb-2 text-ui-base font-medium text-foreground">
-          {intl.formatMessage({ id: "research.progress.chainTitle" })}
+        <div className="mt-5 flex h-8 items-center gap-1.5">
+          <h2 className="text-ui-base font-medium leading-5 text-foreground-subtle">
+            {intl.formatMessage({ id: "research.progress.chainTitle" })}
+          </h2>
+          {sortedRuns.length > 0 ? (
+            <span className="text-ui-base tabular-nums text-foreground-subtle">
+              {sortedRuns.length}
+            </span>
+          ) : null}
         </div>
         {sortedRuns.length > 0 ? (
           <div className="flex flex-col gap-3">
             {sortedRuns.map((run) => {
-              const badge = CHAIN_RUN_STATUS_BADGE[run.status];
+              const statusMeta = CHAIN_RUN_STATUS_META[run.status];
               const doneCount = run.steps.filter(
                 (step) => step.status === "completed" || step.status === "skipped",
               ).length;
               return (
                 <div
                   key={run.file}
-                  className="rounded-[10px] border border-card-border bg-card px-3.5 py-3"
+                  className="rounded-xl border border-card-border bg-background p-3"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <WorkflowIcon
                       className="size-4 shrink-0 text-foreground-subtle"
                       strokeWidth={1.33}
+                      aria-hidden
                     />
-                    <span className="truncate text-ui-sm font-medium text-foreground">
+                    <span className="min-w-0 truncate text-ui-base font-medium leading-5 text-foreground">
                       {run.title}
                     </span>
                     <span
                       className={cn(
-                        "shrink-0 rounded px-1.5 py-0.5 text-ui-sm",
-                        badge.className,
+                        "inline-flex shrink-0 items-center gap-1 font-normal",
+                        statusMeta.labelClassName,
                       )}
                     >
-                      {intl.formatMessage({ id: badge.labelId })}
+                      <span className="flex size-5 shrink-0 items-center justify-center">
+                        {statusMeta.icon()}
+                      </span>
+                      {intl.formatMessage({ id: statusMeta.labelId })}
                     </span>
-                    <span className="ml-auto shrink-0 text-ui-sm text-foreground-subtlest">
+                    <span className="ml-auto shrink-0 text-ui-base tabular-nums text-foreground-subtlest">
                       {formatProgressTime(run.updatedAt ?? run.startedAt)}
                     </span>
                   </div>
                   {run.steps.length > 0 ? (
-                    <ol className="mt-2 flex flex-col">
+                    <ol className="m-0 mt-1 flex list-none flex-col p-0">
                       {run.steps.map((step) => (
-                        <li key={step.id} className="flex items-center gap-2.5 py-1">
+                        <li
+                          key={step.id}
+                          className="flex min-h-8 items-start gap-2 rounded-lg px-2 py-1.5 text-ui-base hover:bg-hover"
+                        >
                           <StepStatusIcon status={step.status} />
                           <span
                             className={cn(
-                              "text-ui-sm",
-                              step.status === "inProgress"
-                                ? "font-medium text-foreground"
-                                : step.status === "completed"
-                                  ? "text-foreground-subtle"
-                                  : "text-foreground-subtlest",
+                              "line-clamp-2 min-w-0 flex-1 break-words leading-5",
+                              step.status === "completed"
+                                ? "text-foreground-subtlest line-through"
+                                : "text-foreground",
                             )}
                           >
                             {step.title}
                           </span>
                           {step.at ? (
-                            <span className="ml-auto shrink-0 text-ui-sm text-foreground-subtlest">
+                            <span className="shrink-0 text-ui-base tabular-nums text-foreground-subtlest">
                               {formatProgressTime(step.at)}
                             </span>
                           ) : null}
@@ -1231,18 +1276,20 @@ function ProgressPane({
                       ))}
                     </ol>
                   ) : null}
-                  <div className="mt-1.5 text-ui-sm text-foreground-subtlest">
-                    {intl.formatMessage(
-                      { id: "research.progress.chainCount" },
-                      { done: doneCount, total: run.steps.length },
-                    )}
+                  <div className="mt-1.5 flex items-center">
+                    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 text-ui-base font-normal tabular-nums text-foreground-subtle">
+                      {intl.formatMessage(
+                        { id: "research.progress.chainCount" },
+                        { done: doneCount, total: run.steps.length },
+                      )}
+                    </span>
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="rounded-[10px] border border-card-border bg-card px-3.5 py-3 text-ui-sm leading-relaxed text-foreground-subtlest">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
             {scanned
               ? intl.formatMessage({ id: "research.progress.chainEmpty" })
               : intl.formatMessage({ id: "research.loading" })}
@@ -2198,12 +2245,10 @@ function FiguresGallery({
                   key={version.absPath}
                   type="button"
                   className={cn(
-                    "rounded-md px-2 py-1 font-mono text-ui-sm transition-colors",
+                    "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-ui-base font-normal tabular-nums transition-colors",
                     index === selected.versionIndex
-                      ? "bg-primary/10 font-medium text-primary"
-                      : index === selected.entry.versions.length - 1
-                        ? "bg-hover text-foreground-subtle hover:text-foreground"
-                        : "text-foreground-subtlest hover:bg-hover hover:text-foreground",
+                      ? "bg-selected font-medium text-foreground"
+                      : "bg-surface text-foreground-subtle hover:text-foreground",
                   )}
                   title={
                     versionNotes[version.relPath.split("/").pop() ?? ""] ??
@@ -2220,7 +2265,7 @@ function FiguresGallery({
               {versionNotes[
                 selected.entry.versions[selected.versionIndex]!.relPath.split("/").pop() ?? ""
               ] ? (
-                <span className="ml-1 truncate text-ui-sm text-foreground-subtlest">
+                <span className="ml-1 truncate text-ui-base font-normal leading-5 text-foreground-subtlest">
                   {versionNotes[
                     selected.entry.versions[selected.versionIndex]!.relPath.split("/").pop() ?? ""
                   ]}
@@ -2401,7 +2446,7 @@ function FiguresGallery({
                     <button
                       key={entry.id}
                       type="button"
-                      className="flex flex-col overflow-hidden rounded-lg border border-card-border bg-card transition-colors hover:border-primary/50"
+                      className="flex flex-col overflow-hidden rounded-xl border border-card-border bg-background text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
                       onClick={() =>
                         setSelected({ entry, versionIndex: entry.versions.length - 1 })
                       }
@@ -2417,10 +2462,12 @@ function FiguresGallery({
                           <ImageIcon className="size-6 text-foreground-subtlest" strokeWidth={1.33} />
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-left text-ui-sm text-foreground-subtle">
-                        <span className="min-w-0 flex-1 truncate">{entry.base}</span>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-left text-ui-base">
+                        <span className="min-w-0 flex-1 truncate font-normal leading-5 text-foreground-subtle">
+                          {entry.base}
+                        </span>
                         {entry.versions.length > 1 ? (
-                          <span className="shrink-0 rounded bg-hover px-1.5 py-0.5 font-mono text-ui-sm text-foreground-subtlest">
+                          <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 font-normal tabular-nums text-foreground-subtle">
                             {intl.formatMessage(
                               { id: "research.figures.versionCount" },
                               { count: entry.versions.length },
@@ -3339,10 +3386,10 @@ function DeliverablesCenter({
     const isExpandedDir = row.kind === "directory" && expandedDir === row.path;
     return (
       <div key={row.path}>
-        <div className="group flex w-full items-center gap-2 rounded-[10px] border border-card-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/50">
+        <div className="group flex w-full items-center gap-2 rounded-xl border border-card-border bg-background px-3 py-2.5 text-left transition-colors hover:bg-hover">
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2.5"
+            className="flex min-w-0 flex-1 items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
             onClick={() => {
               if (row.kind === "directory") {
                 setExpandedDir(isExpandedDir ? null : row.path);
@@ -3366,34 +3413,37 @@ function DeliverablesCenter({
               />
             )}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-ui-sm text-foreground">{row.detail}</span>
+              <span className="block truncate text-ui-base font-normal leading-5 text-foreground">
+                {row.detail}
+              </span>
               {row.label ? (
-                <span className="block truncate text-ui-sm text-foreground-subtlest">
+                <span className="block truncate text-ui-base font-normal leading-5 text-foreground-subtlest">
                   {row.label}
                 </span>
               ) : null}
             </span>
           </button>
-          <button
-            type="button"
-            className="shrink-0 rounded p-1 text-foreground-subtlest opacity-0 transition-opacity group-hover:opacity-100 hover:bg-hover hover:text-foreground"
-            title={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 text-foreground-subtlest opacity-0 transition-opacity group-hover:opacity-100"
+            aria-label={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
             onClick={() =>
               void copyPrompt(row.path, intl.formatMessage({ id: "research.deliverables.pathCopied" }))
             }
           >
             <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
-          </button>
+          </Button>
         </div>
         {isExpandedDir
           ? dirChildren.map((child) => (
               <div
                 key={child.path}
-                className="ml-5 mt-1 flex items-center gap-2.5 rounded-[10px] border border-card-border/60 bg-card/60 px-3 py-1.5 transition-colors hover:border-primary/50"
+                className="ml-5 mt-1 flex items-center gap-2.5 rounded-lg px-3 py-1.5 transition-colors hover:bg-hover"
               >
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
                   onClick={() =>
                     setPreview({ path: child.path, name: child.detail.split("/").pop() ?? child.detail })
                   }
@@ -3403,7 +3453,7 @@ function DeliverablesCenter({
                     size={14}
                     className="shrink-0"
                   />
-                  <span className="truncate text-ui-sm text-foreground-subtle">{child.detail}</span>
+                  <span className="truncate text-ui-base font-normal leading-5 text-foreground-subtle">{child.detail}</span>
                   <EyeIcon className="ml-auto size-3.5 shrink-0 text-foreground-subtlest" strokeWidth={1.33} />
                 </button>
               </div>
@@ -3575,7 +3625,7 @@ function DeliverablePreview({
         ) : text != null ? (
           <pre className="font-mono text-ui-sm leading-relaxed whitespace-pre-wrap">{text}</pre>
         ) : zipInfo ? (
-          <div className="flex flex-col items-center gap-2 p-6 text-ui-sm text-foreground-subtle">
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-card-border bg-background px-4 py-8 text-center text-ui-base text-foreground-subtle">
             <PackageIcon className="size-8 text-foreground-subtlest" strokeWidth={1.33} />
             <div>
               {intl.formatMessage(
@@ -3585,11 +3635,11 @@ function DeliverablePreview({
             </div>
           </div>
         ) : failed ? (
-          <div className="p-3 text-ui-sm text-foreground-subtlest">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
             {intl.formatMessage({ id: "research.viewer.unsupported" })}
           </div>
         ) : (
-          <div className="p-3 text-ui-sm text-foreground-subtlest">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border bg-background px-4 py-6 text-center text-ui-base text-foreground-subtle">
             {intl.formatMessage({ id: "research.loading" })}
           </div>
         )}
