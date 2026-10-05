@@ -6528,6 +6528,7 @@ const zhCN: Record<string, string> = {
   "research.files.title": "文件",
   "research.viewer.close": "关闭",
   "research.viewer.unsupported": "该文件过大或暂不支持预览",
+  "research.code.unsupported": "二进制或超限文件，不在此预览",
   "research.synctex.ready": "SyncTeX 已连接：点源码行跳页，点 PDF 页跳行",
   "research.synctex.missingShort": "SyncTeX 未连接",
   "research.synctex.missing":

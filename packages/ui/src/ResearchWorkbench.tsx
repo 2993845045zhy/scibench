@@ -57,6 +57,47 @@ const PDF_FULL_READ_MAX_BYTES = 8 * 1024 * 1024;
 const OVERLAY_PDF_MAX_BYTES = 16 * 1024 * 1024;
 const SYNCTEX_MAX_BYTES = 4 * 1024 * 1024;
 const TEXT_PREVIEW_LIMIT_BYTES = 64 * 1024;
+const CODE_FILE_LIMIT_BYTES = 512 * 1024;
+
+/** 文件树可打开的代码类扩展名 → CodeViewer 语言 id；不在表内=不反应。 */
+const CODE_LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  py: "python",
+  ts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  cc: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+  java: "java",
+  rs: "rust",
+  go: "go",
+  rb: "ruby",
+  php: "php",
+  swift: "swift",
+  kt: "kotlin",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  yaml: "yaml",
+  yml: "yaml",
+  json: "json",
+  toml: "toml",
+  ini: "ini",
+  xml: "xml",
+  html: "html",
+  css: "css",
+  scss: "scss",
+  sql: "sql",
+  r: "r",
+  matlab: "matlab",
+  cmake: "cmake",
+  dockerfile: "dockerfile",
+};
 
 type ResearchSection = "latex" | "figures" | "experiments" | "literature" | "deliverables";
 
@@ -305,6 +346,8 @@ export function ResearchWorkbench({
   // 文件树点击 .tex → 切到 LaTeX 页并切换目标（由 LatexWorkbench 消费后清空）。
   const [pendingTexRel, setPendingTexRel] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ path: string; name: string } | null>(null);
+  // 文件树点击代码文件 → 内容区切换为代码视图；点导航回原页面。
+  const [codeFile, setCodeFile] = useState<{ path: string; name: string } | null>(null);
 
   const copyPrompt = useCallback(async (prompt: string, doneLabel: string) => {
     try {
@@ -367,7 +410,10 @@ export function ResearchWorkbench({
               <button
                 key={id}
                 type="button"
-                onClick={() => setSection(id)}
+                onClick={() => {
+                  setCodeFile(null);
+                  setSection(id);
+                }}
                 className={cn(
                   "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-ui-sm transition-colors",
                   section === id
@@ -403,13 +449,25 @@ export function ResearchWorkbench({
                   setSection("latex");
                   return;
                 }
-                setViewer({ path, name });
+                if (CODE_LANGUAGE_BY_EXTENSION[extension]) {
+                  setCodeFile({ path, name });
+                  return;
+                }
+                // 非代码文件：不反应（图片/PDF 预览在图表页与文献页）。
               }}
             />
           </div>
         </div>
         <div className="min-h-0 min-w-0 flex-1">
-          {section === "latex" ? (
+          {codeFile ? (
+            <CodeFileView
+              path={codeFile.path}
+              name={codeFile.name}
+              fileService={fileService}
+              onClose={() => setCodeFile(null)}
+              onError={setError}
+            />
+          ) : section === "latex" ? (
             <LatexWorkbench
               workspacePath={workspacePath}
               fileService={fileService}
@@ -703,6 +761,92 @@ function OverlayFileViewer({
           </div>
         ) : (
           <div className="p-3 text-ui-xs text-foreground-subtlest">
+            {intl.formatMessage({ id: "research.loading" })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 代码视图（文件树点击代码文件，CodeViewer 语法高亮） ──
+
+function CodeFileView({
+  path,
+  name,
+  fileService,
+  onClose,
+  onError,
+}: {
+  path: string;
+  name: string;
+  fileService: FileServiceLike;
+  onClose: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const { intl } = useZCodeIntl();
+  const [code, setCode] = useState<string | null>(null);
+  const [unsupported, setUnsupported] = useState(false);
+  const language = CODE_LANGUAGE_BY_EXTENSION[fileExtension(name)] ?? "text";
+
+  useEffect(() => {
+    let disposed = false;
+    setCode(null);
+    setUnsupported(false);
+    void (async () => {
+      try {
+        const slice = await fileService.readTextFile({ path, length: CODE_FILE_LIMIT_BYTES });
+        if (disposed) return;
+        if (slice.isBinary) {
+          setUnsupported(true);
+          return;
+        }
+        setCode(slice.content);
+      } catch {
+        if (!disposed) setUnsupported(true);
+      }
+    })().catch((loadError: unknown) => {
+      if (!disposed) onError(loadError instanceof Error ? loadError.message : String(loadError));
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [path, fileService, onError]);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-card-border bg-card px-4 py-2">
+        <FileTextIcon className="size-3.5 shrink-0 text-primary" strokeWidth={1.33} />
+        <span className="truncate text-ui-xs font-medium" title={path}>
+          {name}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-6 w-6 shrink-0 p-0"
+          onClick={onClose}
+          aria-label={intl.formatMessage({ id: "research.viewer.close" })}
+        >
+          <XIcon className="size-4" />
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 p-3">
+        {unsupported ? (
+          <div className="p-3 text-ui-xs text-foreground-subtlest">
+            {intl.formatMessage({ id: "research.code.unsupported" })}
+          </div>
+        ) : code != null ? (
+          <CodeViewer
+            code={code}
+            language={language}
+            enableSyntaxHighlighting
+            showLineNumbers
+            fontSizePx={12}
+            className="h-full"
+          />
+        ) : (
+          <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+            <Spinner className="size-3.5" />
             {intl.formatMessage({ id: "research.loading" })}
           </div>
         )}
