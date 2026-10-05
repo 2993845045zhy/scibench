@@ -6876,6 +6876,11 @@ const enUS: Record<string, string> = {
     "Both docs/lit/ and docs/papers/ are empty — run /lit-review <topic> in the chat to start the first survey",
   "research.literature.localPdfs": "Local PDFs (docs/papers/)",
   "research.literature.read": "Ask agent to read this",
+  "research.literature.viewPdf": "View PDF",
+  "research.literature.viewSource": "View source notes",
+  "research.literature.findFulltext": "Find full text",
+  "research.literature.findFulltextPrompt":
+    "Citation: {title}. Find the matching PDF under docs/papers/ (fuzzy match authors/year/keywords); if found, tell me the filename and summarize in four lines; if not, search OpenAlex/arXiv for the original link.",
   "research.literature.readPrompt":
     "Read the local PDF {path} closely and give me: problem/method/key metrics/conclusion, one line each, plus one line on its relation to this project (see AGENTS.md).",
   "research.literature.selectHint": "Select a paper on the left to see details",

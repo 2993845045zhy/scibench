@@ -426,6 +426,7 @@ export function ResearchWorkbench({
               watcher={fileWatcherService}
               onError={setError}
               copyPrompt={copyPrompt}
+              onOpenViewer={(path, name) => setViewer({ path, name })}
             />
           ) : (
             <DeliverablesCenter
@@ -1684,12 +1685,14 @@ function LiteratureLibrary({
   watcher,
   onError,
   copyPrompt,
+  onOpenViewer,
 }: {
   workspacePath: string;
   fileService: FileServiceLike;
   watcher: WatcherServiceLike | undefined;
   onError: (message: string | null) => void;
   copyPrompt: CopyPromptFn;
+  onOpenViewer: (path: string, name: string) => void;
 }) {
   const { intl } = useZCodeIntl();
   const [groups, setGroups] = useState<LitGroup[]>([]);
@@ -1852,43 +1855,90 @@ function LiteratureLibrary({
               <div className="mt-1 text-ui-xs text-muted-foreground/70">
                 {selectedPaper.sourceFile}
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {selectedPaper.kind === "pdf" ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-ui-xs"
-                    onClick={() =>
-                      void copyPrompt(
-                        intl.formatMessage(
-                          { id: "research.literature.readPrompt" },
-                          { path: selectedPaper.sourceFile },
-                        ),
-                        intl.formatMessage({ id: "research.promptCopied" }),
-                      )
-                    }
-                  >
-                    <ClipboardCopyIcon className="size-3.5" />
-                    {intl.formatMessage({ id: "research.literature.read" })}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-7 text-ui-xs"
+                      onClick={() =>
+                        onOpenViewer(
+                          selectedPaper.sourceFile,
+                          selectedPaper.sourceFile.split("/").pop() ?? "paper.pdf",
+                        )
+                      }
+                    >
+                      <BookOpenIcon className="size-3.5" />
+                      {intl.formatMessage({ id: "research.literature.viewPdf" })}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-ui-xs"
+                      onClick={() =>
+                        void copyPrompt(
+                          intl.formatMessage(
+                            { id: "research.literature.readPrompt" },
+                            { path: selectedPaper.sourceFile },
+                          ),
+                          intl.formatMessage({ id: "research.promptCopied" }),
+                        )
+                      }
+                    >
+                      <ClipboardCopyIcon className="size-3.5" />
+                      {intl.formatMessage({ id: "research.literature.read" })}
+                    </Button>
+                  </>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-ui-xs"
-                    onClick={() =>
-                      void copyPrompt(
-                        intl.formatMessage(
-                          { id: "research.literature.verifyPrompt" },
-                          { title: selectedPaper.title },
-                        ),
-                        intl.formatMessage({ id: "research.promptCopied" }),
-                      )
-                    }
-                  >
-                    <ClipboardCopyIcon className="size-3.5" />
-                    {intl.formatMessage({ id: "research.literature.verify" })}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-7 text-ui-xs"
+                      onClick={() =>
+                        onOpenViewer(
+                          selectedPaper.sourceFile,
+                          selectedPaper.sourceFile.split("/").pop() ?? "notes.md",
+                        )
+                      }
+                    >
+                      <BookOpenIcon className="size-3.5" />
+                      {intl.formatMessage({ id: "research.literature.viewSource" })}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-ui-xs"
+                      onClick={() =>
+                        void copyPrompt(
+                          intl.formatMessage(
+                            { id: "research.literature.findFulltextPrompt" },
+                            { title: selectedPaper.title },
+                          ),
+                          intl.formatMessage({ id: "research.promptCopied" }),
+                        )
+                      }
+                    >
+                      <ClipboardCopyIcon className="size-3.5" />
+                      {intl.formatMessage({ id: "research.literature.findFulltext" })}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-ui-xs"
+                      onClick={() =>
+                        void copyPrompt(
+                          intl.formatMessage(
+                            { id: "research.literature.verifyPrompt" },
+                            { title: selectedPaper.title },
+                          ),
+                          intl.formatMessage({ id: "research.promptCopied" }),
+                        )
+                      }
+                    >
+                      <ClipboardCopyIcon className="size-3.5" />
+                      {intl.formatMessage({ id: "research.literature.verify" })}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>

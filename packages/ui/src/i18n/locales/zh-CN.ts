@@ -6552,6 +6552,11 @@ const zhCN: Record<string, string> = {
     "docs/lit/ 与 docs/papers/ 都为空——在对话里输入 /lit-review <主题> 开始第一次文献调研",
   "research.literature.localPdfs": "本地文献 PDF（docs/papers/）",
   "research.literature.read": "让 agent 精读这篇",
+  "research.literature.viewPdf": "查看 PDF",
+  "research.literature.viewSource": "查看来源笔记",
+  "research.literature.findFulltext": "找本地全文",
+  "research.literature.findFulltextPrompt":
+    "这条文献：{title}。请在 docs/papers/ 里找到对应的 PDF（模糊匹配作者/年份/关键词），找到就告诉我文件名并打开给我四行总结；找不到就去 OpenAlex/arXiv 检索原文链接。",
   "research.literature.readPrompt":
     "请精读本地 PDF {path}，给我：研究问题/方法/关键指标/结论各一行，再一行说明它与本项目（见 AGENTS.md 研究问题）的关系。",
   "research.literature.selectHint": "左侧选择一篇文献查看详情",
