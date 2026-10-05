@@ -324,6 +324,45 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     version: "0.2.0",
   },
   {
+    // SciBench 科研工作台核心层：research-init / exp-log / paper-pipeline 三个技能 +
+    // /research 命令 + science MCP（clawsgo-science-mcp，文献/综述/评审/沙箱）。
+    // 纯内容型 + 一个 stdio MCP；MCP 依赖 conda 环境 research，缺失时只影响该 server 连接，
+    // 技能与命令不受影响，因此可以默认启用。
+    defaultEnabled: true,
+    listing: {
+      author: { name: "Zhang Hongyu" },
+      category: "productivity",
+      displayName: "Research Station",
+      displayName_i18n: { "zh-CN": "科研工作台" },
+      description_i18n: {
+        "zh-CN":
+          "科研工作台扩展层：项目脚手架、实验证据记录、论文产线技能，以及文献/评审 science MCP。",
+      },
+      examplePrompts: [
+        "Help me set up a new research project",
+        "Record this experiment run with evidence",
+      ],
+      examplePrompts_i18n: {
+        "zh-CN": ["帮我搭一个新科研项目的骨架", "把这次实验结果记录成证据"],
+      },
+    },
+    name: "research-station",
+    requiredSeedPaths: [
+      ".mcp.json",
+      "commands/research.md",
+      "skills/exp-log/SKILL.md",
+      "skills/paper-pipeline/SKILL.md",
+      "skills/research-init/SKILL.md",
+    ],
+    rootCandidates: [
+      "packages/research-station-plugin",
+      "../research-station-plugin",
+      "../../research-station-plugin",
+      "../../../research-station-plugin",
+    ],
+    version: "0.1.0",
+  },
+  {
     // 产品决策：电脑控制回退为默认关闭，需用户在设置页显式开启。
     // 因此这里不声明 defaultEnabled——computer-use 携带 MCP server 与系统 Helper 依赖，
     // 默认开启意味着每个新用户首启即注入整套工具集并拉起 Helper。

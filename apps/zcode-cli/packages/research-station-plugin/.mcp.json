@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "science": {
+      "type": "stdio",
+      "command": "/home/robot/opt/research-venv/bin/python",
+      "args": ["-m", "clawsgo_self.server"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}
