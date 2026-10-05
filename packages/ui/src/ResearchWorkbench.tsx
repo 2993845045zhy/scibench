@@ -53,8 +53,8 @@ function fileExtension(name: string): string {
 }
 
 /**
- * 科研工作台主视图（整页形态）：左侧导航 + 大内容区。
- * 形态对标 ClawsGO Science 的主工作台；视觉沿用 ZCode 设计系统。
+ * 科研工作台（ClawsGO 形态：顶栏 + 左侧导航 + 大内容区；视觉沿用 ZCode 设计系统）。
+ * 作为右侧面板渲染：与对话同屏共写；onBack 仅在整页嵌入时提供，面板形态不渲染返回按钮。
  */
 export function ResearchWorkbench({
   workspacePath,
@@ -65,7 +65,7 @@ export function ResearchWorkbench({
   workspacePath: string;
   workspaceIdentity?: string | null;
   remoteSessionId?: string | null;
-  onBack: () => void;
+  onBack?: () => void;
 }) {
   const { intl } = useZCodeIntl();
   const { fileService } = useWorkspaceServices(workspacePath, remoteSessionId, workspaceIdentity);
@@ -91,12 +91,16 @@ export function ResearchWorkbench({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-ui-xs" onClick={onBack}>
-          <ArrowLeftIcon className="size-3.5" />
-          {intl.formatMessage({ id: "research.backToChat" })}
-        </Button>
-        <div className="h-4 w-px bg-border" aria-hidden />
+      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+        {onBack ? (
+          <>
+            <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-ui-xs" onClick={onBack}>
+              <ArrowLeftIcon className="size-3.5" />
+              {intl.formatMessage({ id: "research.backToChat" })}
+            </Button>
+            <div className="h-4 w-px bg-border" aria-hidden />
+          </>
+        ) : null}
         <FlaskConicalIcon className="size-4 text-primary" />
         <h1 className="text-ui-base font-medium">{intl.formatMessage({ id: "research.title" })}</h1>
         <span

@@ -542,7 +542,7 @@ export function getSidePaneTabTitle(
   }
 
   if (tab.type === "research") {
-    return formatMessage({ id: "research.paneTitle" });
+    return formatMessage({ id: "research.title" });
   }
 
   if (tab.type === "terminal" || tab.type === "bash-output") {

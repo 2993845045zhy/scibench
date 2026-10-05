@@ -82,7 +82,7 @@ export function getLocalizedSidePaneTabTitle(
       "codeViewer.title": labels.codeViewerTitle,
       "treemapping.title": labels.treemappingTitle,
       "whiteboard.title": labels.whiteboardTitle,
-      "research.paneTitle": labels.researchTitle,
+      "research.title": labels.researchTitle,
       "modelTrajectory.title": labels.modelTrajectoryTitle,
       "developerTools.title": labels.developerToolsTitle,
       "terminal.title": labels.terminalTitle,

@@ -117,7 +117,7 @@ export interface GitChangeSummary {
   removed: number;
 }
 
-export type WorkspaceMainView = "chat" | "automations" | "plugin-store" | "research";
+export type WorkspaceMainView = "chat" | "automations" | "plugin-store";
 
 export interface WorkspaceShellLayoutProps extends Omit<AppProps, "baseFeedbackService"> {
   workspaceReadOnlyReason?: string;
@@ -236,9 +236,7 @@ export interface WorkspaceShellLayoutProps extends Omit<AppProps, "baseFeedbackS
   handleOpenBrowserTab: () => void;
   handleOpenTreemapping: (source?: TreemappingSidePaneTab["source"]) => void;
   handleOpenWhiteboard: () => void;
-  handleNavigateToResearchMain: () => void;
   handleOpenResearchPane: () => void;
-  handleNavigateToTaskMain: () => void;
   handleOpenDeveloperTools: () => void;
   handleOpenTerminalTab: () => void;
   handleToggleGit: () => void;

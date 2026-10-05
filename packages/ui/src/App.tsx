@@ -852,9 +852,6 @@ export function App({
     preserveNextSettingsExit();
     setWorkspaceMainView("plugin-store");
   }, [preserveNextSettingsExit]);
-  const handleNavigateToResearchMain = useCallback(() => {
-    setWorkspaceMainView("research");
-  }, []);
   const handleOpenAutomationConsumed = useCallback(() => {
     setOpenAutomationId(null);
     setOpenAutomationTab(null);
@@ -1038,7 +1035,7 @@ export function App({
           openTerminalTab: () => runVisibleWorkspaceCommand(handleOpenTerminalTabIfWritable),
           openBrowserTab: () => runVisibleWorkspaceCommand(handleOpenBrowserTab),
           openReviewTab: () => runVisibleWorkspaceCommand(handleOpenGitIfWritable),
-          openResearchTab: handleNavigateToResearchMain,
+          openResearchTab: handleOpenResearchPane,
         },
       }),
     [
@@ -1052,7 +1049,7 @@ export function App({
       handleSwitchTheme,
       handleOpenBrowserTab,
       handleOpenGitIfWritable,
-      handleNavigateToResearchMain,
+      handleOpenResearchPane,
       handleOpenTerminalTabIfWritable,
       handleToggleBrowser,
       handleToggleSidebar,
@@ -1249,9 +1246,7 @@ export function App({
         handleOpenBrowserTab={handleOpenBrowserTab}
         handleOpenTreemapping={handleOpenTreemappingIfWritable}
         handleOpenWhiteboard={handleOpenWhiteboard}
-        handleNavigateToResearchMain={handleNavigateToResearchMain}
         handleOpenResearchPane={handleOpenResearchPane}
-        handleNavigateToTaskMain={handleNavigateToTaskMain}
         handleOpenDeveloperTools={handleOpenDeveloperTools}
         handleOpenTerminalTab={handleOpenTerminalTabIfWritable}
         handleToggleGit={handleToggleGitIfWritable}

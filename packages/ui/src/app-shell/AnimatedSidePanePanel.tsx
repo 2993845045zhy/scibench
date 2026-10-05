@@ -27,7 +27,7 @@ import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
 import { GitPane } from "@/GitPane.js";
 import { TreemappingPane } from "@/TreemappingPane.js";
 import { WhiteboardPane } from "@/WhiteboardPane.js";
-import { ResearchPane } from "@/ResearchPane.js";
+import { ResearchWorkbench } from "@/ResearchWorkbench.js";
 import { ModelTrajectoryPane } from "@/ModelTrajectoryPane.js";
 import { DeveloperToolsPane } from "@/DeveloperToolsPane.js";
 import { cn } from "@/components/lib/utils.js";
@@ -736,7 +736,7 @@ export function AnimatedSidePanePanel({
             }}
           >
             <FlaskConicalIcon className="size-4" />
-            <span>{intl.formatMessage({ id: "research.paneTitle" })}</span>
+            <span>{intl.formatMessage({ id: "research.title" })}</span>
           </DropdownMenuItem>
         ) : null}
         {!isOfficeMode ? (
@@ -894,7 +894,7 @@ export function AnimatedSidePanePanel({
         codeViewerTitle: intl.formatMessage({ id: "codeViewer.title" }),
         treemappingTitle: intl.formatMessage({ id: "treemapping.title" }),
         whiteboardTitle: intl.formatMessage({ id: "whiteboard.title" }),
-        researchTitle: intl.formatMessage({ id: "research.paneTitle" }),
+        researchTitle: intl.formatMessage({ id: "research.title" }),
         modelTrajectoryTitle: intl.formatMessage({
           id: "modelTrajectory.title",
         }),
@@ -1253,7 +1253,7 @@ export function AnimatedSidePanePanel({
                             boardId={tab.boardId}
                           />
                         ) : tab.type === "research" ? (
-                          <ResearchPane
+                          <ResearchWorkbench
                             workspacePath={workspaceAbsPath}
                             workspaceIdentity={workspaceIdentity}
                             remoteSessionId={workspaceRemoteSessionId}
