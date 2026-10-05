@@ -32,6 +32,9 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable.js";
+import { CodeViewer, findCodeViewerLineElement } from "@/components/ui/code-viewer.js";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible.js";
+import { Spinner } from "@/components/ui/spinner.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { cn } from "@/components/lib/utils.js";
@@ -53,7 +56,6 @@ const FIGURE_SCAN_DEPTH = 2;
 const PDF_FULL_READ_MAX_BYTES = 8 * 1024 * 1024;
 const OVERLAY_PDF_MAX_BYTES = 16 * 1024 * 1024;
 const SYNCTEX_MAX_BYTES = 4 * 1024 * 1024;
-const SOURCE_RENDER_LINE_CAP = 3000;
 const TEXT_PREVIEW_LIMIT_BYTES = 64 * 1024;
 
 type ResearchSection = "latex" | "figures" | "experiments" | "literature" | "deliverables";
@@ -913,7 +915,7 @@ function LatexWorkbench({
     [synctexRecords],
   );
 
-  // 反向跳转：点 PDF 页面 → 源码滚动并高亮对应行。
+  // 反向跳转：点 PDF 页面 → 源码滚动并高亮对应行（CodeViewer 行元素查找）。
   const handlePdfPageClick = useCallback(
     (page: number, _xRatio: number, yRatio: number) => {
       if (!synctexRecords) return;
@@ -922,9 +924,10 @@ function LatexWorkbench({
       const line = record.lines[0] ?? null;
       if (line == null) return;
       setActiveLine(line);
-      sourceScrollRef.current
-        ?.querySelector(`[data-line="${line}"]`)
-        ?.scrollIntoView({ block: "center" });
+      const scrollRoot = sourceScrollRef.current;
+      if (scrollRoot) {
+        findCodeViewerLineElement(scrollRoot, line)?.scrollIntoView({ block: "center" });
+      }
     },
     [synctexRecords],
   );
@@ -938,11 +941,6 @@ function LatexWorkbench({
       </div>
     );
   }
-
-  const sourceLines = useMemo(
-    () => (source ? source.split("\n").slice(0, SOURCE_RENDER_LINE_CAP) : []),
-    [source],
-  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1006,31 +1004,37 @@ function LatexWorkbench({
           <div className="border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
             {texRelPath}
           </div>
+          {/* 源码区：ZCode CodeViewer（latex 语法高亮 + 行号）；行点击经委托走 SyncTeX 正向跳转。 */}
           <div
-            ref={sourceScrollRef}
-            className="min-h-0 flex-1 overflow-auto p-2 font-mono text-ui-xs leading-relaxed"
+            className="min-h-0 flex-1 overflow-hidden"
+            onClick={(event) => {
+              const lineElement = (event.target as HTMLElement).closest<HTMLElement>("[data-line]");
+              const line = Number.parseInt(lineElement?.getAttribute("data-line") ?? "", 10);
+              if (Number.isInteger(line) && line >= 1) {
+                handleLineClick(line);
+              }
+            }}
           >
             {sourceMissing ? (
-              <span>{intl.formatMessage({ id: "research.latex.sourceMissing" })}</span>
-            ) : sourceLines.length > 0 ? (
-              sourceLines.map((line, index) => (
-                <div
-                  key={index}
-                  data-line={index + 1}
-                  className={cn(
-                    "flex cursor-pointer gap-2 rounded px-1 hover:bg-hover",
-                    activeLine === index + 1 && "bg-hover",
-                  )}
-                  onClick={() => handleLineClick(index + 1)}
-                >
-                  <span className="w-8 shrink-0 select-none text-right text-foreground-subtlest">
-                    {index + 1}
-                  </span>
-                  <span className="whitespace-pre-wrap break-all">{line || " "}</span>
-                </div>
-              ))
+              <div className="p-3 text-ui-xs text-foreground-subtlest">
+                {intl.formatMessage({ id: "research.latex.sourceMissing" })}
+              </div>
+            ) : source != null ? (
+              <CodeViewer
+                code={source}
+                language="latex"
+                enableSyntaxHighlighting
+                showLineNumbers
+                fontSizePx={12}
+                className="h-full"
+                markedLines={activeLine != null ? [activeLine] : undefined}
+                scrollContainerRef={sourceScrollRef}
+              />
             ) : (
-              <span>{intl.formatMessage({ id: "research.loading" })}</span>
+              <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+                <Spinner className="size-3.5" />
+                {intl.formatMessage({ id: "research.loading" })}
+              </div>
             )}
           </div>
         </div>
@@ -1066,7 +1070,8 @@ function LatexWorkbench({
                 />
               </Suspense>
             ) : (
-              <div className="p-3 text-ui-xs text-foreground-subtlest">
+              <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+                <Spinner className="size-3.5" />
                 {intl.formatMessage({ id: "research.loading" })}
               </div>
             )}
@@ -1429,9 +1434,17 @@ function FiguresGallery({
       ) : (
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
           {grouped.map(([group, items]) => (
-            <div key={group} className="mb-5">
-              <div className="mb-2 text-ui-sm font-medium text-foreground-subtle">{group}/</div>
-              <div className="grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <Collapsible key={group} defaultOpen className="mb-5">
+              <CollapsibleTrigger className="group/collapsible mb-2 flex w-full items-center gap-1.5 text-ui-sm font-medium text-foreground-subtle">
+                <ChevronDownIcon
+                  className="size-3.5 shrink-0 transition-transform group-data-[state=closed]/collapsible:-rotate-90"
+                  strokeWidth={1.33}
+                />
+                <span className="truncate">{group}/</span>
+                <span className="shrink-0 text-ui-xs text-foreground-subtlest">{items.length}</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {items.map((figure) => (
                   <button
                     key={figure.absPath}
@@ -1447,7 +1460,7 @@ function FiguresGallery({
                           className="max-h-36 max-w-full object-contain"
                         />
                       ) : (
-                        <ImageIcon className="size-6 text-foreground-subtlest" />
+                        <ImageIcon className="size-6 text-foreground-subtlest" strokeWidth={1.33} />
                       )}
                     </div>
                     <div className="truncate px-2.5 py-1.5 text-left text-ui-xs text-foreground-subtle">
@@ -1455,8 +1468,9 @@ function FiguresGallery({
                     </div>
                   </button>
                 ))}
-              </div>
-            </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           ))}
           {scanned && figures.length === 0 ? (
             <div className="p-3 text-ui-xs text-foreground-subtlest">
@@ -2005,7 +2019,8 @@ function LiteratureLibrary({
                       <PdfViewer source={pdfBytes} className="h-full" />
                     </Suspense>
                   ) : (
-                    <div className="p-3 text-ui-xs text-foreground-subtlest">
+                    <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+                      <Spinner className="size-3.5" />
                       {intl.formatMessage({ id: "research.pdf.loading" })}
                     </div>
                   )}
