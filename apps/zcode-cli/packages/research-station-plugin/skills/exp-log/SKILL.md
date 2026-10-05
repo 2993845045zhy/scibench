@@ -16,9 +16,13 @@ allowed-tools: Read Write Edit Bash
 ```
 meta.md        # 人读的记录（模板见下）
 params.*       # 参数快照（yaml/json 原样导出，禁止手抄）
-data/          # 原始 dump（大文件可只记指纹：文件名 + 大小 + md5 前 8 位）
+data/          # 原始数据：能搬进来的就**复制整份**（如 npz dump、csv），
+               # 只有体积大到不合理（>50MB）才降级为指纹（文件名+大小+md5 前 8 位）
 figs/          # 关键曲线/截图（每张配一行说明）
 ```
+
+原始 dump 的标准位置：真机/仿真应用的落盘目录（如 ~/.ros2/pbvs_servo_dump_*.npz）
+→ 记卡时复制最近的进 data/ 并注明来源路径与时间；应用侧自动清理不迁怒于卡内副本。
 
 ### meta.md 模板
 
