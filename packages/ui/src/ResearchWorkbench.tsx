@@ -27,6 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.js";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { cn } from "@/components/lib/utils.js";
@@ -990,9 +995,14 @@ function LatexWorkbench({
             : intl.formatMessage({ id: "research.synctex.missingShort" })}
         </span>
       </div>
-      {/* 源码与 PDF 左右并排；SyncTeX 就绪时点行跳页、点页跳行。 */}
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 px-4 pb-4">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
+      {/* 源码/PDF 用 ZCode Resizable 分栏：默认 4:6 偏向 PDF，源码可压到 20%。 */}
+      <ResizablePanelGroup
+        layoutId="research-latex-split"
+        panelIds={["research-latex-source", "research-latex-pdf"]}
+        className="min-h-0 flex-1 px-4 pb-4"
+      >
+        <ResizablePanel id="research-latex-source" minSize="20%" defaultSize="40%">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
           <div className="border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
             {texRelPath}
           </div>
@@ -1024,7 +1034,10 @@ function LatexWorkbench({
             )}
           </div>
         </div>
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
+        </ResizablePanel>
+        <ResizableHandle />
+        <ResizablePanel id="research-latex-pdf" minSize="30%">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
           <div className="flex items-center gap-2 border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
             <span>
               {pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath?.split("/").pop()}
@@ -1059,7 +1072,8 @@ function LatexWorkbench({
             )}
           </div>
         </div>
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
@@ -1708,6 +1722,29 @@ function LiteratureLibrary({
   const [scanned, setScanned] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState<LitPaper | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+
+  // 选中本地 PDF 条目时在详情区直接内嵌预览（复用共享 PdfViewer，与 LaTeX 页同源）。
+  useEffect(() => {
+    let disposed = false;
+    setPdfBytes(null);
+    if (!selectedPaper || selectedPaper.kind !== "pdf") return undefined;
+    void (async () => {
+      try {
+        const whole = await readWholeFile(
+          fileService,
+          selectedPaper.sourceFile,
+          OVERLAY_PDF_MAX_BYTES,
+        );
+        if (!disposed && whole) setPdfBytes(whole);
+      } catch {
+        // 内嵌预览失败：详情区保留「查看 PDF」浮层兜底。
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, [selectedPaper, fileService]);
 
   useDirChangeWatcher(
     joinPath(workspacePath, "docs/lit"),
@@ -1854,17 +1891,21 @@ function LiteratureLibrary({
             </div>
           ) : null}
         </div>
-        <div className="min-h-0 w-1/2 overflow-auto rounded-[10px] border border-card-border bg-card px-3 py-3">
+        <div className="flex min-h-0 w-1/2 flex-col overflow-hidden rounded-[10px] border border-card-border bg-card px-3 py-3">
           {selectedPaper ? (
-            <div>
-              <div className="text-ui-base font-medium">{selectedPaper.title}</div>
-              <div className="mt-1 text-ui-xs text-foreground-subtle">
-                {[selectedPaper.authors, selectedPaper.year].filter(Boolean).join(" · ")}
-              </div>
-              <div className="mt-1 text-ui-xs text-foreground-subtlest">
-                {selectedPaper.sourceFile}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+            <>
+              <div className="shrink-0">
+                <div className="truncate text-ui-base font-medium" title={selectedPaper.title}>
+                  {selectedPaper.title}
+                </div>
+                <div className="mt-1 truncate text-ui-xs text-foreground-subtle">
+                  {[selectedPaper.authors, selectedPaper.year].filter(Boolean).join(" · ") ||
+                    selectedPaper.slug}
+                </div>
+                <div className="mt-1 truncate text-ui-xs text-foreground-subtlest">
+                  {selectedPaper.sourceFile}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
                 {selectedPaper.kind === "pdf" ? (
                   <>
                     <Button
@@ -1949,8 +1990,28 @@ function LiteratureLibrary({
                     </Button>
                   </>
                 )}
+                </div>
               </div>
-            </div>
+              {selectedPaper.kind === "pdf" ? (
+                <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-card-border">
+                  {pdfBytes ? (
+                    <Suspense
+                      fallback={
+                        <div className="p-3 text-ui-xs text-foreground-subtlest">
+                          {intl.formatMessage({ id: "research.pdf.loading" })}
+                        </div>
+                      }
+                    >
+                      <PdfViewer source={pdfBytes} className="h-full" />
+                    </Suspense>
+                  ) : (
+                    <div className="p-3 text-ui-xs text-foreground-subtlest">
+                      {intl.formatMessage({ id: "research.pdf.loading" })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </>
           ) : (
             <div className="text-ui-xs text-foreground-subtle">
               {intl.formatMessage({ id: "research.literature.selectHint" })}
