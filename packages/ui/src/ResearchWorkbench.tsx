@@ -396,7 +396,7 @@ export function ResearchWorkbench({
               <ArrowLeftIcon className="size-3.5" strokeWidth={1.33} />
               {intl.formatMessage({ id: "research.backToChat" })}
             </Button>
-            <div className="h-4 w-px bg-card-border" aria-hidden />
+            <div className="h-4 w-px bg-border" aria-hidden />
           </>
         ) : null}
         <FlaskConicalIcon className="size-4 text-primary" strokeWidth={1.33} />
@@ -1054,7 +1054,7 @@ function LatexWorkbench({
           className="h-8 shrink-0 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
-          <RefreshCwIcon className="size-3.5" />
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.latex.reload" })}
         </Button>
         <Button
@@ -1068,7 +1068,7 @@ function LatexWorkbench({
             )
           }
         >
-          <ClipboardCopyIcon className="size-3.5" />
+          <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.latex.compile" })}
         </Button>
         <span
@@ -1366,7 +1366,7 @@ function FiguresGallery({
           className="ml-auto h-8 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
-          <RefreshCwIcon className="size-3.5" />
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.figures.rescan" })}
         </Button>
       </div>
@@ -1459,7 +1459,7 @@ function FiguresGallery({
                 className="h-8 shrink-0 text-ui-xs"
                 onClick={() => setAnnotations([])}
               >
-                <EraserIcon className="size-3.5" />
+                <EraserIcon className="size-3.5" strokeWidth={1.33} />
                 {intl.formatMessage({ id: "research.figures.clearAnnotations" })}
               </Button>
             ) : null}
@@ -1477,7 +1477,7 @@ function FiguresGallery({
                 )
               }
             >
-              <HistoryIcon className="size-3.5" />
+              <HistoryIcon className="size-3.5" strokeWidth={1.33} />
               {intl.formatMessage({ id: "research.figures.history" })}
             </Button>
             <Button
@@ -1510,7 +1510,7 @@ function FiguresGallery({
                 void copyPrompt(prompt, intl.formatMessage({ id: "research.promptCopied" }));
               }}
             >
-              <ClipboardCopyIcon className="size-3.5" />
+              <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
               {intl.formatMessage({ id: "research.figures.sendFeedback" })}
             </Button>
           </div>
@@ -1675,7 +1675,7 @@ function ExperimentsList({
           className="ml-auto h-8 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
-          <RefreshCwIcon className="size-3.5" />
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.experiments.rescan" })}
         </Button>
       </div>
@@ -1942,7 +1942,7 @@ function LiteratureLibrary({
           className="ml-auto h-8 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
-          <RefreshCwIcon className="size-3.5" />
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.literature.rescan" })}
         </Button>
         <Button
@@ -1955,7 +1955,7 @@ function LiteratureLibrary({
             )
           }
         >
-          <ClipboardCopyIcon className="size-3.5" />
+          <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.literature.continue" })}
         </Button>
       </div>
@@ -2036,7 +2036,7 @@ function LiteratureLibrary({
                         )
                       }
                     >
-                      <ClipboardCopyIcon className="size-3.5" />
+                      <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
                       {intl.formatMessage({ id: "research.literature.read" })}
                     </Button>
                   </>
@@ -2069,7 +2069,7 @@ function LiteratureLibrary({
                         )
                       }
                     >
-                      <ClipboardCopyIcon className="size-3.5" />
+                      <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
                       {intl.formatMessage({ id: "research.literature.findFulltext" })}
                     </Button>
                     <Button
@@ -2086,7 +2086,7 @@ function LiteratureLibrary({
                         )
                       }
                     >
-                      <ClipboardCopyIcon className="size-3.5" />
+                      <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
                       {intl.formatMessage({ id: "research.literature.verify" })}
                     </Button>
                   </>
@@ -2255,7 +2255,7 @@ function DeliverablesCenter({
           className="ml-auto h-8 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
-          <RefreshCwIcon className="size-3.5" />
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.deliverables.rescan" })}
         </Button>
         <Button
@@ -2268,7 +2268,7 @@ function DeliverablesCenter({
             )
           }
         >
-          <ClipboardCopyIcon className="size-3.5" />
+          <ClipboardCopyIcon className="size-3.5" strokeWidth={1.33} />
           {intl.formatMessage({ id: "research.deliverables.runSubmit" })}
         </Button>
       </div>
