@@ -41,6 +41,8 @@ import { Spinner } from "@/components/ui/spinner.js";
 import { PreviewPane } from "@/PreviewPane.js";
 import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
+import { useZCodeStore } from "@/store/StoreProvider.js";
+import { resolveTheme } from "@/useTheme.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { cn } from "@/components/lib/utils.js";
@@ -852,6 +854,11 @@ function LatexWorkbench({
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [targetPage, setTargetPage] = useState<number | undefined>(undefined);
   const sourceScrollRef = useRef<HTMLDivElement | null>(null);
+  // 字号/主题/换行/行号全部跟随设置里的代码预览配置（与官方 PreviewPane 同源）。
+  const theme = useZCodeStore((state) => state.theme);
+  const codePreviewSettings = useZCodeStore((state) => state.codePreviewSettings);
+  const resolvedCodeTheme =
+    resolveTheme(theme) === "dark" ? codePreviewSettings.darkTheme : codePreviewSettings.lightTheme;
 
   const texAbsPath = texRelPath ? joinPath(workspacePath, texRelPath) : null;
   const pdfAbsPath = texAbsPath ? texAbsPath.replace(/\.tex$/, ".pdf") : null;
@@ -1111,8 +1118,10 @@ function LatexWorkbench({
                 code={source}
                 language="latex"
                 enableSyntaxHighlighting
-                showLineNumbers
-                fontSizePx={12}
+                theme={resolvedCodeTheme}
+                showLineNumbers={codePreviewSettings.showLineNumbers}
+                wrapLongLines={codePreviewSettings.wrapLongLines}
+                fontSizePx={codePreviewSettings.fontSizePx}
                 className="h-full"
                 markedLines={activeLine != null ? [activeLine] : undefined}
                 scrollContainerRef={sourceScrollRef}
