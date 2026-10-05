@@ -15,6 +15,7 @@ import {
   Archive,
   Blocks,
   CalendarClock,
+  FlaskConical,
   Clock3,
   Cloud,
   Folder,
@@ -258,8 +259,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   goForwardShortcutLabel: _goForwardShortcutLabel,
   onOpenCommandCenter,
   onOpenAutomations,
+  onOpenResearch,
   onOpenPluginStore,
   automationsActive = false,
+  researchActive = false,
   pluginStoreActive = false,
   onFileTreeOpenChange,
 }: {
@@ -310,8 +313,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   goForwardShortcutLabel?: string;
   onOpenCommandCenter: () => void;
   onOpenAutomations?: () => void;
+  onOpenResearch?: () => void;
   onOpenPluginStore?: () => void;
   automationsActive?: boolean;
+  researchActive?: boolean;
   pluginStoreActive?: boolean;
   onFileTreeOpenChange?: (open: boolean) => void;
 }) {
@@ -755,6 +760,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   const handleOpenAutomationsMain = useCallback(() => {
     onOpenAutomations?.();
   }, [onOpenAutomations]);
+  const handleOpenResearchMain = useCallback(() => {
+    onOpenResearch?.();
+  }, [onOpenResearch]);
   const handleOpenCodingPlanUpgrade = useCallback(
     (
       providerId: string,
@@ -1330,6 +1338,21 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
             >
               <CalendarClock className="size-4" />
               {intl.formatMessage({ id: "workspace.openScheduledSettings" })}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleOpenResearchMain}
+              data-icon="inline-start"
+              data-testid="research-workbench-sidebar-open"
+              size="lg"
+              aria-pressed={researchActive}
+              className={cn(
+                "w-full justify-start gap-2 text-foreground hover:bg-surface-hover hover:text-foreground",
+                researchActive && "bg-selected text-foreground",
+              )}
+            >
+              <FlaskConical className="size-4" />
+              {intl.formatMessage({ id: "research.title" })}
             </Button>
             <Button
               variant="ghost"

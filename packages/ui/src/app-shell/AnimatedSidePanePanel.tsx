@@ -27,7 +27,6 @@ import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
 import { GitPane } from "@/GitPane.js";
 import { TreemappingPane } from "@/TreemappingPane.js";
 import { WhiteboardPane } from "@/WhiteboardPane.js";
-import { ResearchPane } from "@/ResearchPane.js";
 import { ModelTrajectoryPane } from "@/ModelTrajectoryPane.js";
 import { DeveloperToolsPane } from "@/DeveloperToolsPane.js";
 import { cn } from "@/components/lib/utils.js";
@@ -93,7 +92,6 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   BugIcon,
   FileDiffIcon,
-  FlaskConicalIcon,
   GlobeIcon,
   MessageSquareTextIcon,
   PlusIcon,
@@ -314,7 +312,6 @@ export function AnimatedSidePanePanel({
   onReopenClosedTab,
   onOpenBrowserTab,
   onOpenWhiteboard: _onOpenWhiteboard,
-  onOpenResearch,
   onOpenDeveloperTools,
   onOpenTerminalTab,
   onOpenReviewTab,
@@ -380,7 +377,6 @@ export function AnimatedSidePanePanel({
   onReopenClosedTab: (tabId: string) => void;
   onOpenBrowserTab: () => void;
   onOpenWhiteboard: () => void;
-  onOpenResearch: () => void;
   onOpenDeveloperTools: () => void;
   onOpenTerminalTab: () => void;
   onOpenReviewTab: () => void;
@@ -730,17 +726,6 @@ export function AnimatedSidePanePanel({
         </DropdownMenuItem> */}
         {!isOfficeMode ? (
           <DropdownMenuItem
-            data-side-pane-add-item="research"
-            onSelect={() => {
-              onOpenResearch();
-            }}
-          >
-            <FlaskConicalIcon className="size-4" />
-            <span>{intl.formatMessage({ id: "research.title" })}</span>
-          </DropdownMenuItem>
-        ) : null}
-        {!isOfficeMode ? (
-          <DropdownMenuItem
             data-side-pane-add-item="terminal"
             onSelect={() => {
               onOpenTerminalTab();
@@ -894,7 +879,6 @@ export function AnimatedSidePanePanel({
         codeViewerTitle: intl.formatMessage({ id: "codeViewer.title" }),
         treemappingTitle: intl.formatMessage({ id: "treemapping.title" }),
         whiteboardTitle: intl.formatMessage({ id: "whiteboard.title" }),
-        researchTitle: intl.formatMessage({ id: "research.title" }),
         modelTrajectoryTitle: intl.formatMessage({
           id: "modelTrajectory.title",
         }),
@@ -1251,12 +1235,6 @@ export function AnimatedSidePanePanel({
                             workspacePath={workspaceAbsPath}
                             workspaceIdentity={workspaceIdentity}
                             boardId={tab.boardId}
-                          />
-                        ) : tab.type === "research" ? (
-                          <ResearchPane
-                            workspacePath={workspaceAbsPath}
-                            workspaceIdentity={workspaceIdentity}
-                            remoteSessionId={workspaceRemoteSessionId}
                           />
                         ) : tab.type === "model-trajectory" ? (
                           <ModelTrajectoryPane

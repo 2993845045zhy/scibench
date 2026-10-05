@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeftIcon,
   ClipboardCopyIcon,
   FileTextIcon,
   FlaskConicalIcon,
@@ -10,9 +11,9 @@ import {
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
+import { cn } from "@/components/lib/utils.js";
 import type { FileEntry } from "@zcode/shared";
 import type { PdfViewerLabels, PdfViewerSource } from "@/components/ui/pdf-viewer.js";
 
@@ -24,10 +25,22 @@ const PdfViewer = lazy(() =>
 );
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
-const TEX_SOURCE_LIMIT_BYTES = 128 * 1024;
+const TEX_SOURCE_LIMIT_BYTES = 256 * 1024;
 const META_LIMIT_BYTES = 16 * 1024;
 const FIGURE_SCAN_DEPTH = 2;
 const PDF_FULL_READ_MAX_BYTES = 8 * 1024 * 1024;
+
+type ResearchSection = "latex" | "figures" | "experiments";
+
+const SECTIONS: Array<{
+  id: ResearchSection;
+  icon: typeof FileTextIcon;
+  labelId: string;
+}> = [
+  { id: "latex", icon: FileTextIcon, labelId: "research.latex.tab" },
+  { id: "figures", icon: ImageIcon, labelId: "research.figures.tab" },
+  { id: "experiments", icon: ListIcon, labelId: "research.experiments.tab" },
+];
 
 function joinPath(base: string, rel: string): string {
   const cleanRel = rel.replace(/^\/+/, "");
@@ -39,32 +52,36 @@ function fileExtension(name: string): string {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 }
 
-export function ResearchPane({
+/**
+ * 科研工作台主视图（整页形态）：左侧导航 + 大内容区。
+ * 形态对标 ClawsGO Science 的主工作台；视觉沿用 ZCode 设计系统。
+ */
+export function ResearchWorkbench({
   workspacePath,
   workspaceIdentity,
   remoteSessionId,
+  onBack,
 }: {
   workspacePath: string;
   workspaceIdentity?: string | null;
   remoteSessionId?: string | null;
+  onBack: () => void;
 }) {
   const { intl } = useZCodeIntl();
   const { fileService } = useWorkspaceServices(workspacePath, remoteSessionId, workspaceIdentity);
+  const [section, setSection] = useState<ResearchSection>("latex");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const copyPrompt = useCallback(
-    async (prompt: string, doneLabel: string) => {
-      try {
-        await navigator.clipboard.writeText(prompt);
-        setToast(doneLabel);
-        setError(null);
-      } catch {
-        setError(prompt);
-      }
-    },
-    [],
-  );
+  const copyPrompt = useCallback(async (prompt: string, doneLabel: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setToast(doneLabel);
+      setError(null);
+    } catch {
+      setError(prompt);
+    }
+  }, []);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -73,61 +90,76 @@ export function ResearchPane({
   }, [toast]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <FlaskConicalIcon className="size-4 shrink-0 text-primary" />
-        <span className="text-ui-sm font-medium">
-          {intl.formatMessage({ id: "research.title" })}
-        </span>
-        <span className="ml-auto truncate text-ui-xs text-muted-foreground" title={workspacePath}>
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-ui-xs" onClick={onBack}>
+          <ArrowLeftIcon className="size-3.5" />
+          {intl.formatMessage({ id: "research.backToChat" })}
+        </Button>
+        <div className="h-4 w-px bg-border" aria-hidden />
+        <FlaskConicalIcon className="size-4 text-primary" />
+        <h1 className="text-ui-base font-medium">{intl.formatMessage({ id: "research.title" })}</h1>
+        <span
+          className="ml-auto max-w-[40%] truncate text-ui-xs text-muted-foreground"
+          title={workspacePath}
+        >
           {workspacePath}
         </span>
-      </div>
+      </header>
       {error ? (
-        <div className="border-b border-border bg-destructive/10 px-3 py-2 text-ui-xs break-all text-destructive">
+        <div className="border-b border-border bg-destructive/10 px-4 py-2 text-ui-xs break-all text-destructive">
           {error}
         </div>
       ) : null}
       {toast ? (
-        <div className="border-b border-border bg-primary/10 px-3 py-2 text-ui-xs text-primary">
+        <div className="border-b border-border bg-primary/10 px-4 py-2 text-ui-xs text-primary">
           {toast}
         </div>
       ) : null}
-      <Tabs defaultValue="latex" className="flex min-h-0 flex-1 flex-col gap-0">
-        <TabsList className="mx-3 mt-2 self-start">
-          <TabsTrigger value="latex">
-            <FileTextIcon className="size-3.5" />
-            {intl.formatMessage({ id: "research.latex.tab" })}
-          </TabsTrigger>
-          <TabsTrigger value="figures">
-            <ImageIcon className="size-3.5" />
-            {intl.formatMessage({ id: "research.figures.tab" })}
-          </TabsTrigger>
-          <TabsTrigger value="experiments">
-            <ListIcon className="size-3.5" />
-            {intl.formatMessage({ id: "research.experiments.tab" })}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="latex" className="min-h-0">
-          <LatexWorkbench
-            workspacePath={workspacePath}
-            fileService={fileService}
-            onError={setError}
-            copyPrompt={copyPrompt}
-          />
-        </TabsContent>
-        <TabsContent value="figures" className="min-h-0">
-          <FiguresGallery
-            workspacePath={workspacePath}
-            fileService={fileService}
-            onError={setError}
-            copyPrompt={copyPrompt}
-          />
-        </TabsContent>
-        <TabsContent value="experiments" className="min-h-0">
-          <ExperimentsList workspacePath={workspacePath} fileService={fileService} onError={setError} />
-        </TabsContent>
-      </Tabs>
+      <div className="flex min-h-0 flex-1">
+        <nav className="flex w-40 shrink-0 flex-col gap-1 border-r border-border p-2">
+          {SECTIONS.map(({ id, icon: SectionIcon, labelId }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setSection(id)}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2.5 py-2 text-ui-sm transition-colors",
+                section === id
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+              aria-current={section === id ? "page" : undefined}
+            >
+              <SectionIcon className="size-4 shrink-0" />
+              {intl.formatMessage({ id: labelId })}
+            </button>
+          ))}
+        </nav>
+        <div className="min-h-0 min-w-0 flex-1">
+          {section === "latex" ? (
+            <LatexWorkbench
+              workspacePath={workspacePath}
+              fileService={fileService}
+              onError={setError}
+              copyPrompt={copyPrompt}
+            />
+          ) : section === "figures" ? (
+            <FiguresGallery
+              workspacePath={workspacePath}
+              fileService={fileService}
+              onError={setError}
+              copyPrompt={copyPrompt}
+            />
+          ) : (
+            <ExperimentsList
+              workspacePath={workspacePath}
+              fileService={fileService}
+              onError={setError}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -226,7 +258,8 @@ function LatexWorkbench({
         } else {
           setPdfSource({
             totalBytes: fileStat.size,
-            requestRange: (offset, length) => fileService.readFileRange({ path: pdfAbsPath, offset, length }),
+            requestRange: (offset, length) =>
+              fileService.readFileRange({ path: pdfAbsPath, offset, length }),
           });
         }
       } catch {
@@ -248,18 +281,18 @@ function LatexWorkbench({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <Input
           value={texRelPath}
           onChange={(event) => setTexRelPath(event.target.value)}
-          className="h-7 text-ui-xs"
+          className="h-8 w-72 text-ui-xs"
           spellCheck={false}
           aria-label={intl.formatMessage({ id: "research.latex.pathLabel" })}
         />
         <Button
           variant="outline"
           size="sm"
-          className="h-7 shrink-0 px-2 text-ui-xs"
+          className="h-8 shrink-0 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" />
@@ -267,13 +300,10 @@ function LatexWorkbench({
         </Button>
         <Button
           size="sm"
-          className="h-7 shrink-0 px-2 text-ui-xs"
+          className="h-8 shrink-0 px-2.5 text-ui-xs"
           onClick={() =>
             void copyPrompt(
-              intl.formatMessage(
-                { id: "research.latex.compilePrompt" },
-                { path: texRelPath },
-              ),
+              intl.formatMessage({ id: "research.latex.compilePrompt" }, { path: texRelPath }),
               intl.formatMessage({ id: "research.promptCopied" }),
             )
           }
@@ -281,20 +311,24 @@ function LatexWorkbench({
           <ClipboardCopyIcon className="size-3.5" />
           {intl.formatMessage({ id: "research.latex.compile" })}
         </Button>
+        <span className="ml-auto text-ui-xs text-muted-foreground">
+          {intl.formatMessage({ id: "research.latex.hint" })}
+        </span>
       </div>
-      <div className="grid min-h-0 flex-1 grid-rows-2 gap-2 px-3 pb-3">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border">
-          <div className="border-b border-border bg-muted/40 px-2 py-1 text-ui-xs text-muted-foreground">
+      {/* 整页形态：源码与 PDF 左右并排（窄面板时代是上下堆叠） */}
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 px-4 pb-4">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
+          <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
             {texRelPath}
           </div>
-          <pre className="min-h-0 flex-1 overflow-auto p-2 font-mono text-ui-xs leading-relaxed">
+          <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-ui-xs leading-relaxed">
             {sourceMissing
               ? intl.formatMessage({ id: "research.latex.sourceMissing" })
               : (source ?? intl.formatMessage({ id: "research.loading" }))}
           </pre>
         </div>
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border">
-          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-2 py-1 text-ui-xs text-muted-foreground">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
+          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
             <span>{pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath.split("/").pop()}</span>
             <span className="ml-auto">{intl.formatMessage({ id: "research.pdf.preview" })}</span>
           </div>
@@ -397,10 +431,13 @@ function FiguresGallery({
       setFigures(found);
       setScanned(true);
 
-      // 缩略图按需生成：仅前 24 张，避免大目录一次拉爆。
-      for (const figure of found.slice(0, 24)) {
+      // 缩略图按需生成：仅前 40 张，整页形态放宽上限但仍防大目录拖垮。
+      for (const figure of found.slice(0, 40)) {
         try {
-          const preview = await fileService.readMediaPreview({ path: figure.absPath, maxBytes: 2 * 1024 * 1024 });
+          const preview = await fileService.readMediaPreview({
+            path: figure.absPath,
+            maxBytes: 2 * 1024 * 1024,
+          });
           if (disposed) return;
           setPreviews((current) => ({
             ...current,
@@ -431,14 +468,14 @@ function FiguresGallery({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <span className="text-ui-xs text-muted-foreground">
           {intl.formatMessage({ id: "research.figures.count" }, { count: figures.length })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-7 px-2 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" />
@@ -446,8 +483,8 @@ function FiguresGallery({
         </Button>
       </div>
       {selected ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3">
-          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-muted/20">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/20">
             {previews[selected.absPath] ? (
               <img
                 src={previews[selected.absPath]}
@@ -463,19 +500,19 @@ function FiguresGallery({
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               placeholder={intl.formatMessage({ id: "research.figures.commentPlaceholder" })}
-              className="h-7 text-ui-xs"
+              className="h-8 text-ui-xs"
             />
             <Button
               variant="outline"
               size="sm"
-              className="h-7 shrink-0 text-ui-xs"
+              className="h-8 shrink-0 text-ui-xs"
               onClick={() => setSelected(null)}
             >
               {intl.formatMessage({ id: "research.figures.back" })}
             </Button>
             <Button
               size="sm"
-              className="h-7 shrink-0 text-ui-xs"
+              className="h-8 shrink-0 text-ui-xs"
               disabled={!comment.trim()}
               onClick={() =>
                 void copyPrompt(
@@ -493,30 +530,30 @@ function FiguresGallery({
           </div>
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
           {grouped.map(([group, items]) => (
-            <div key={group} className="mb-3">
-              <div className="mb-1 text-ui-xs font-medium text-muted-foreground">{group}/</div>
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+            <div key={group} className="mb-5">
+              <div className="mb-2 text-ui-sm font-medium text-muted-foreground">{group}/</div>
+              <div className="grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {items.map((figure) => (
                   <button
                     key={figure.absPath}
                     type="button"
-                    className="flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-primary/50"
+                    className="flex flex-col overflow-hidden rounded-lg border border-border transition-colors hover:border-primary/50"
                     onClick={() => setSelected(figure)}
                   >
-                    <div className="flex h-24 items-center justify-center bg-muted/20">
+                    <div className="flex h-36 items-center justify-center bg-muted/20">
                       {previews[figure.absPath] ? (
                         <img
                           src={previews[figure.absPath]}
                           alt={figure.relPath}
-                          className="max-h-24 max-w-full object-contain"
+                          className="max-h-36 max-w-full object-contain"
                         />
                       ) : (
-                        <ImageIcon className="size-5 text-muted-foreground/50" />
+                        <ImageIcon className="size-6 text-muted-foreground/50" />
                       )}
                     </div>
-                    <div className="truncate px-2 py-1 text-left text-ui-xs text-muted-foreground">
+                    <div className="truncate px-2.5 py-1.5 text-left text-ui-xs text-muted-foreground">
                       {figure.relPath.split("/").pop()}
                     </div>
                   </button>
@@ -537,7 +574,6 @@ function FiguresGallery({
 
 interface ExperimentCard {
   dirName: string;
-  metaPath: string | null;
   title: string;
   verdict: string | null;
   snippet: string;
@@ -583,13 +619,15 @@ function ExperimentsList({
         .map((entry) => entry.name)
         .sort((left, right) => right.localeCompare(left));
       const loaded: ExperimentCard[] = [];
-      for (const dirName of directories.slice(0, 50)) {
+      for (const dirName of directories.slice(0, 100)) {
         const metaAbs = joinPath(workspacePath, `experiments/${dirName}/meta.md`);
         try {
           const text = await fileService.readTextFile({ path: metaAbs, length: META_LIMIT_BYTES });
           if (disposed) return;
           const lines = text.content.split("\n");
-          const title = (lines.find((line) => line.startsWith("# ")) ?? `# ${dirName}`).slice(2).trim();
+          const title = (lines.find((line) => line.startsWith("# ")) ?? `# ${dirName}`)
+            .slice(2)
+            .trim();
           const verdictLine = lines.find((line) => /PROCEED|REFINE|PIVOT|NEGATIVE/.test(line));
           const verdict = verdictLine
             ? (verdictLine.match(/PROCEED|REFINE|PIVOT|NEGATIVE/)?.[0] ?? null)
@@ -598,10 +636,10 @@ function ExperimentsList({
             .filter((line) => line.trim() && !line.startsWith("#"))
             .slice(0, 3)
             .join(" · ");
-          loaded.push({ dirName, metaPath: metaAbs, title, verdict, snippet });
+          loaded.push({ dirName, title, verdict, snippet });
         } catch {
           if (disposed) return;
-          loaded.push({ dirName, metaPath: null, title: dirName, verdict: null, snippet: "" });
+          loaded.push({ dirName, title: dirName, verdict: null, snippet: "" });
         }
       }
       if (disposed) return;
@@ -618,39 +656,46 @@ function ExperimentsList({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <span className="text-ui-xs text-muted-foreground">
           {intl.formatMessage({ id: "research.experiments.count" }, { count: cards.length })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-7 px-2 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-xs"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" />
           {intl.formatMessage({ id: "research.experiments.rescan" })}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-        {cards.map((card) => (
-          <div key={card.dirName} className="mb-2 rounded-md border border-border p-2">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-ui-sm font-medium" title={card.title}>
-                {card.title}
-              </span>
-              {card.verdict ? (
-                <Badge variant={VERDICT_BADGE_VARIANT[card.verdict] ?? "outline"} className="ml-auto">
-                  {card.verdict}
-                </Badge>
+      <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2">
+          {cards.map((card) => (
+            <div key={card.dirName} className="rounded-lg border border-border p-3.5">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-ui-sm font-medium" title={card.title}>
+                  {card.title}
+                </span>
+                {card.verdict ? (
+                  <Badge
+                    variant={VERDICT_BADGE_VARIANT[card.verdict] ?? "outline"}
+                    className="ml-auto"
+                  >
+                    {card.verdict}
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="mt-1 text-ui-xs text-muted-foreground">{card.dirName}</div>
+              {card.snippet ? (
+                <div className="mt-1.5 line-clamp-2 text-ui-xs text-muted-foreground/80">
+                  {card.snippet}
+                </div>
               ) : null}
             </div>
-            <div className="mt-0.5 text-ui-xs text-muted-foreground">{card.dirName}</div>
-            {card.snippet ? (
-              <div className="mt-1 line-clamp-2 text-ui-xs text-muted-foreground/80">{card.snippet}</div>
-            ) : null}
-          </div>
-        ))}
+          ))}
+        </div>
         {scanned && cards.length === 0 ? (
           <div className="p-3 text-ui-xs text-muted-foreground">
             {intl.formatMessage({ id: "research.experiments.empty" })}

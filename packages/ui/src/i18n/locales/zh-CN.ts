@@ -6520,6 +6520,8 @@ const zhCN: Record<string, string> = {
   "research.experiments.rescan": "重新扫描",
   "research.experiments.empty": "experiments/ 目录为空或不存在（exp-log 技能会自动创建）",
   "quickPick.command.research": "打开科研工作台（LaTeX / 图表 / 实验）",
+  "research.backToChat": "返回对话",
+  "research.latex.hint": "「编译」生成指令交给对话执行，完成后点「刷新」",
 };
 
 export default zhCN;

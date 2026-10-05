@@ -6842,6 +6842,8 @@ const enUS: Record<string, string> = {
   "research.experiments.rescan": "Rescan",
   "research.experiments.empty": "experiments/ is empty or missing (the exp-log skill creates it)",
   "quickPick.command.research": "Open Research Workbench (LaTeX / Figures / Experiments)",
+  "research.backToChat": "Back to chat",
+  "research.latex.hint": "Compile hands the command to the chat; hit Reload when it finishes",
 };
 
 export default enUS;

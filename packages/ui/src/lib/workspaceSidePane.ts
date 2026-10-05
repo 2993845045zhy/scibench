@@ -66,18 +66,6 @@ export interface WhiteboardSidePaneTab {
   title: string;
 }
 
-/**
- * SciBench 科研工作台侧面板：LaTeX 工作台 / 图表库 / 实验记录三个子页。
- * 无外部运行时依赖（纯读 workspace 文件），单例 id，重复打开只激活。
- */
-export interface ResearchSidePaneTab {
-  id: string;
-  type: "research";
-  ownerTaskId?: string | null;
-  workspaceKey?: string | null;
-  openedAt?: number;
-}
-
 export interface ModelTrajectorySidePaneTab {
   id: string;
   type: "model-trajectory";
@@ -532,7 +520,6 @@ export type WorkspaceSidePaneTab =
   | CodeViewerSidePaneTab
   | TreemappingSidePaneTab
   | WhiteboardSidePaneTab
-  | ResearchSidePaneTab
   | ModelTrajectorySidePaneTab
   | DeveloperToolsSidePaneTab
   | TerminalSidePaneTab
@@ -681,14 +668,6 @@ function createDeveloperToolsSidePaneTab(): DeveloperToolsSidePaneTab {
   return {
     id: "developer-tools",
     type: "developer-tools",
-    openedAt: Date.now(),
-  };
-}
-
-function createResearchSidePaneTab(): ResearchSidePaneTab {
-  return {
-    id: "research",
-    type: "research",
     openedAt: Date.now(),
   };
 }
@@ -1605,12 +1584,6 @@ export function activateDeveloperToolsSidePane(
   current: WorkspaceSidePaneState | null,
 ): WorkspaceSidePaneState {
   return activateSidePaneTab(current, createDeveloperToolsSidePaneTab());
-}
-
-export function activateResearchSidePane(
-  current: WorkspaceSidePaneState | null,
-): WorkspaceSidePaneState {
-  return activateSidePaneTab(current, createResearchSidePaneTab());
 }
 
 export function openTerminalSidePane(
