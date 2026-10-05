@@ -258,6 +258,12 @@ if (!app.isPackaged && process.env.ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT !==
   app.commandLine.appendSwitch("remote-debugging-port", "9229");
 }
 
+// Linux 桌面用 WM_CLASS 匹配 .desktop 启动器（任务栏图标/固定/窗口分组）。
+// dev 态默认类名是 "zcode dev"，GNOME 无法把它和 scibench.desktop 关联；统一声明成 SciBench。
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("class", "SciBench");
+}
+
 app.setName(runtimeApplicationName);
 if (runtimeHomePath) {
   app.setPath("home", runtimeHomePath);
