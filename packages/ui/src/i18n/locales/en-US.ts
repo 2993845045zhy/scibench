@@ -6863,7 +6863,7 @@ const enUS: Record<string, string> = {
   "research.bench.resultAt": "updated {time}",
   "research.bench.empty": "No bench_/cmp_ scripts under tests/",
   "research.code.empty":
-    "Click a code file (.py/.cpp/.yaml …) in the file tree below to open it; × closes the current file",
+    "Click a code or doc file (.py/.cpp/.yaml/.md …) in the file tree below to open it; × closes the current file",
   "research.synctex.ready": "SyncTeX on: click a source line to jump pages, click the PDF to jump lines",
   "research.synctex.missingShort": "SyncTeX off",
   "research.synctex.missing":

@@ -6539,7 +6539,7 @@ const zhCN: Record<string, string> = {
   "research.bench.noResult": "尚无结果文档——点「运行台架」交给 agent 执行，跑完这里自动出数据表。",
   "research.bench.resultAt": "结果更新于 {time}",
   "research.bench.empty": "tests/ 下没有 bench_/cmp_ 开头的台架脚本",
-  "research.code.empty": "在下方文件树点击代码文件（.py/.cpp/.yaml 等）打开查看；点 × 关闭当前文件",
+  "research.code.empty": "在下方文件树点击代码或文档文件（.py/.cpp/.yaml/.md 等）打开查看；点 × 关闭当前文件",
   "research.synctex.ready": "SyncTeX 已连接：点源码行跳页，点 PDF 页跳行",
   "research.synctex.missingShort": "SyncTeX 未连接",
   "research.synctex.missing":
