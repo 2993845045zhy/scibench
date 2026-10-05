@@ -6841,6 +6841,7 @@ const enUS: Record<string, string> = {
   "research.experiments.count": "{count} experiment records",
   "research.experiments.rescan": "Rescan",
   "research.experiments.empty": "experiments/ is empty or missing (the exp-log skill creates it)",
+  "quickPick.command.research": "Open Research Workbench (LaTeX / Figures / Experiments)",
 };
 
 export default enUS;

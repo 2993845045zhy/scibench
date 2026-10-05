@@ -4,6 +4,7 @@ export type QuickPickCommandIcon =
   | "community"
   | "diff"
   | "feedback"
+  | "flask"
   | "folder"
   | "login"
   | "logout"
@@ -63,6 +64,7 @@ interface QuickPickCommandHandlers {
   openTerminalTab: () => void;
   openBrowserTab: () => void;
   openReviewTab: () => void;
+  openResearchTab: () => void;
 }
 
 interface CreateQuickPickCommandsOptions {
@@ -192,6 +194,29 @@ export function createQuickPickCommands({
       keywords: ["add", "review", "diff", "changes", "添加审查", "审查标签", "变更"],
       run: handlers.openReviewTab,
     },
+    ...(supportsTerminal
+      ? [
+          {
+            id: "open-research-tab",
+            sectionId: "panels",
+            titleId: "quickPick.command.research",
+            icon: "flask",
+            keywords: [
+              "research",
+              "latex",
+              "pdf",
+              "figures",
+              "experiments",
+              "科研",
+              "科研工作台",
+              "实验",
+              "图表",
+              "论文",
+            ],
+            run: handlers.openResearchTab,
+          } satisfies QuickPickCommand,
+        ]
+      : []),
     {
       id: "settings",
       sectionId: "configure",

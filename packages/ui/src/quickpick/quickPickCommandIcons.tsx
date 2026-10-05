@@ -1,6 +1,7 @@
 import {
   BookOpenIcon,
   FileDiffIcon,
+  FlaskConicalIcon,
   FolderOpenIcon,
   GlobeIcon,
   LogInIcon,
@@ -25,6 +26,7 @@ export const QUICK_PICK_ICON_BY_KIND = {
   community: UsersIcon,
   diff: FileDiffIcon,
   feedback: MessageSquareIcon,
+  flask: FlaskConicalIcon,
   folder: FolderOpenIcon,
   login: LogInIcon,
   logout: LogOutIcon,

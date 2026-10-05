@@ -1035,6 +1035,7 @@ export function App({
           openTerminalTab: () => runVisibleWorkspaceCommand(handleOpenTerminalTabIfWritable),
           openBrowserTab: () => runVisibleWorkspaceCommand(handleOpenBrowserTab),
           openReviewTab: () => runVisibleWorkspaceCommand(handleOpenGitIfWritable),
+          openResearchTab: () => runVisibleWorkspaceCommand(handleOpenResearch),
         },
       }),
     [
@@ -1048,6 +1049,7 @@ export function App({
       handleSwitchTheme,
       handleOpenBrowserTab,
       handleOpenGitIfWritable,
+      handleOpenResearch,
       handleOpenTerminalTabIfWritable,
       handleToggleBrowser,
       handleToggleSidebar,
