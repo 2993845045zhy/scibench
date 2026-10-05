@@ -6822,7 +6822,7 @@ const enUS: Record<string, string> = {
   "research.latex.reload": "Reload",
   "research.latex.compile": "Compile",
   "research.latex.compilePrompt":
-    "Compile {path} with xelatex (twice for stable references); report only the error lines and suggested fixes, or reply OK on success.",
+    "Compile {path} with xelatex -synctex=1 (twice for stable references); report only the error lines and suggested fixes, or reply OK on success.",
   "research.latex.sourceMissing": "Source file not found (enter the correct path, or ask the agent to scaffold one)",
   "research.pdf.preview": "PDF preview",
   "research.pdf.loading": "Loading PDF…",
@@ -6847,6 +6847,49 @@ const enUS: Record<string, string> = {
   "research.latex.autoHint": "auto-refreshes on file changes",
   "research.latex.noFiles":
     "No .tex files found. Ask the agent in the chat to scaffold paper/ LaTeX files — they will show up here automatically",
+  "research.files.title": "Files",
+  "research.viewer.close": "Close",
+  "research.viewer.unsupported": "File too large or preview unsupported",
+  "research.synctex.ready": "SyncTeX on: click a source line to jump pages, click the PDF to jump lines",
+  "research.synctex.missingShort": "SyncTeX off",
+  "research.synctex.missing":
+    "No .synctex.gz found — recompile with the Compile button (-synctex=1) to enable line↔page jumps",
+  "research.figures.annotateHint":
+    "Drag on the image to annotate (click a box to remove); box positions go into the feedback prompt",
+  "research.figures.clearAnnotations": "Clear annotations",
+  "research.figures.removeAnnotation": "Click to remove this annotation",
+  "research.figures.history": "History",
+  "research.figures.historyPrompt":
+    "Show me the git history of {path} (following renames): per version, list time, commit message and key changes.",
+  "research.figures.feedbackPromptWithRegions":
+    "Figure feedback: {path}. Issue: {comment}. Annotated regions: {regions} (percent coordinates). Update the generating script, re-run it, and tell me when done.",
+  "research.literature.tab": "Literature",
+  "research.literature.count": "{count} papers",
+  "research.literature.rescan": "Rescan",
+  "research.literature.continue": "Continue survey",
+  "research.literature.continuePrompt":
+    "Continue this project's literature survey: read existing notes in docs/lit/, add 5 recent works around the research gaps, following the /lit-review convention.",
+  "research.literature.verify": "Verify citation",
+  "research.literature.verifyPrompt":
+    "Verify this citation's existence and metadata (title/authors/year/venue) and give the DOI or source link: {title}",
+  "research.literature.empty":
+    "docs/lit/ is empty — run /lit-review <topic> in the chat to start the first survey",
+  "research.literature.selectHint": "Select a paper on the left to see details",
+  "research.deliverables.tab": "Deliverables",
+  "research.deliverables.count": "{count} deliverables",
+  "research.deliverables.rescan": "Rescan",
+  "research.deliverables.runSubmit": "Prepare submission",
+  "research.deliverables.runSubmitPrompt":
+    "Run the /submit chain: extract title/abstract, suggest venues, package, draft cover letter.",
+  "research.deliverables.submission": "Submission package",
+  "research.deliverables.reviews": "Review records",
+  "research.deliverables.lit": "Literature surveys",
+  "research.deliverables.experiments": "Experiment evidence",
+  "research.deliverables.experimentsCount": "experiments/ holds {count} records",
+  "research.deliverables.empty":
+    "No deliverables yet — outputs of /peer-review, /submit and /lit-review will appear here",
+  "research.deliverables.pathCopied": "Path copied",
+  "research.deliverables.pathCopiedHint": "Click to copy path",
 };
 
 export default enUS;

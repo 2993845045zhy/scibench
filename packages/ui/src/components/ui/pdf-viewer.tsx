@@ -1,6 +1,11 @@
 "use client";
 
-import type { HTMLAttributes, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  HTMLAttributes,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
@@ -100,6 +105,10 @@ export interface PdfViewerProps extends HTMLAttributes<HTMLDivElement> {
   source: PdfViewerSource;
   labels?: Partial<PdfViewerLabels>;
   onLoadError?: (error: Error) => void;
+  /** 外部指定目标页（如 SyncTeX 正向跳转）：值变化即跳页。 */
+  targetPage?: number;
+  /** 页面点击回调（如 SyncTeX 反向定位）：归一化坐标 0~1。 */
+  onPageClick?: (page: number, xRatio: number, yRatio: number) => void;
 }
 
 type PdfDocumentFile = string | Blob | { data: Uint8Array } | { range: PdfViewerRangeTransport };
@@ -119,7 +128,15 @@ function normalizePdfSource(
   return { data: new Uint8Array(source) };
 }
 
-export function PdfViewer({ source, labels, onLoadError, className, ...props }: PdfViewerProps) {
+export function PdfViewer({
+  source,
+  labels,
+  onLoadError,
+  targetPage,
+  onPageClick,
+  className,
+  ...props
+}: PdfViewerProps) {
   const mergedLabels = { ...DEFAULT_LABELS, ...labels };
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -228,6 +245,42 @@ export function PdfViewer({ source, labels, onLoadError, className, ...props }: 
     }
     goToPage(parsed);
   }, [goToPage, pageInput, pageNumber]);
+
+  // 外部目标页（SyncTeX 正向）：值变化即跳。经 ref 取最新 goToPage，避免其闭包依赖把本效应频繁重放。
+  const goToPageRef = useRef(goToPage);
+  goToPageRef.current = goToPage;
+  useEffect(() => {
+    if (typeof targetPage === "number" && targetPage >= 1) {
+      goToPageRef.current(targetPage);
+    }
+  }, [targetPage]);
+
+  // 页面点击（SyncTeX 反向）：经 ref 取回调；与缩放手势区分——按下与抬起位移小于 4px 才算点击。
+  const onPageClickRef = useRef(onPageClick);
+  onPageClickRef.current = onPageClick;
+  const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const handlePagePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    pointerDownPosRef.current = { x: event.clientX, y: event.clientY };
+  }, []);
+  const handlePageClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const origin = pointerDownPosRef.current;
+      pointerDownPosRef.current = null;
+      const callback = onPageClickRef.current;
+      if (!callback || !origin) return;
+      if (Math.abs(event.clientX - origin.x) > 4 || Math.abs(event.clientY - origin.y) > 4) {
+        return;
+      }
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      callback(
+        pageNumber,
+        (event.clientX - rect.left) / rect.width,
+        (event.clientY - rect.top) / rect.height,
+      );
+    },
+    [pageNumber],
+  );
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -351,7 +404,13 @@ export function PdfViewer({ source, labels, onLoadError, className, ...props }: 
           {rangeError ? (
             <div className="p-3 text-ui-base text-destructive">{mergedLabels.loadError}</div>
           ) : (
-            <div ref={pageViewportRef} className="relative" style={pageDisplaySize}>
+            <div
+              ref={pageViewportRef}
+              className="relative"
+              style={pageDisplaySize}
+              onPointerDown={handlePagePointerDown}
+              onClick={handlePageClick}
+            >
               <div style={pagePreviewStyle}>
                 <Document
                   file={file}

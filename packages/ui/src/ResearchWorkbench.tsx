@@ -1,12 +1,21 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
+  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   ClipboardCopyIcon,
+  EraserIcon,
+  FileIcon,
   FileTextIcon,
   FlaskConicalIcon,
+  FolderIcon,
+  HistoryIcon,
   ImageIcon,
   ListIcon,
+  PackageIcon,
   RefreshCwIcon,
+  XIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
@@ -37,8 +46,12 @@ const TEX_SOURCE_LIMIT_BYTES = 256 * 1024;
 const META_LIMIT_BYTES = 16 * 1024;
 const FIGURE_SCAN_DEPTH = 2;
 const PDF_FULL_READ_MAX_BYTES = 8 * 1024 * 1024;
+const OVERLAY_PDF_MAX_BYTES = 16 * 1024 * 1024;
+const SYNCTEX_MAX_BYTES = 4 * 1024 * 1024;
+const SOURCE_RENDER_LINE_CAP = 3000;
+const TEXT_PREVIEW_LIMIT_BYTES = 64 * 1024;
 
-type ResearchSection = "latex" | "figures" | "experiments";
+type ResearchSection = "latex" | "figures" | "experiments" | "literature" | "deliverables";
 
 const SECTIONS: Array<{
   id: ResearchSection;
@@ -48,6 +61,8 @@ const SECTIONS: Array<{
   { id: "latex", icon: FileTextIcon, labelId: "research.latex.tab" },
   { id: "figures", icon: ImageIcon, labelId: "research.figures.tab" },
   { id: "experiments", icon: ListIcon, labelId: "research.experiments.tab" },
+  { id: "literature", icon: BookOpenIcon, labelId: "research.literature.tab" },
+  { id: "deliverables", icon: PackageIcon, labelId: "research.deliverables.tab" },
 ];
 
 function joinPath(base: string, rel: string): string {
@@ -122,9 +137,143 @@ function pickDefaultTex(files: readonly string[]): string | null {
   return files.find((file) => file.startsWith("paper/")) ?? files[0]!;
 }
 
+/** 读整份文件字节（带分块与上限），供 PDF/SyncTeX 预载。 */
+async function readWholeFile(
+  fileService: FileServiceLike,
+  path: string,
+  maxBytes: number,
+): Promise<Uint8Array | null> {
+  const fileStat = await fileService.stat({ path });
+  if (typeof fileStat.size !== "number" || fileStat.size > maxBytes) return null;
+  let offset = 0;
+  const chunks: Uint8Array[] = [];
+  while (offset < fileStat.size) {
+    const chunk = await fileService.readFileRange({
+      path,
+      offset,
+      length: Math.min(512 * 1024, fileStat.size - offset),
+    });
+    if (chunk.length === 0) break;
+    chunks.push(chunk);
+    offset += chunk.length;
+  }
+  const whole = new Uint8Array(offset);
+  let cursor = 0;
+  for (const chunk of chunks) {
+    whole.set(chunk, cursor);
+    cursor += chunk.length;
+  }
+  return whole;
+}
+
+// ── SyncTeX（子集解析：行 ↔ 页/纵位置） ──
+
+interface SynctexRecord {
+  page: number;
+  lines: number[];
+  y: number;
+  h: number;
+}
+
+const SYNCTEX_RECORD_PATTERN = /^f((?:,\d+)+):([-\d.eE+]+):([-\d.eE+]+):([-\d.eE+]+):([-\d.eE+]+)/;
+const SYNCTEX_PAGE_PATTERN = /^\{(\d+)/;
+
+function parseSynctexRecords(text: string): SynctexRecord[] {
+  const records: SynctexRecord[] = [];
+  let page = 0;
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimEnd();
+    const pageMatch = line.match(SYNCTEX_PAGE_PATTERN);
+    if (pageMatch) {
+      page = Number.parseInt(pageMatch[1]!, 10);
+      continue;
+    }
+    if (!line.startsWith("f,")) continue;
+    const match = line.match(SYNCTEX_RECORD_PATTERN);
+    if (!match) continue;
+    const lineNumbers = match[1]!
+      .split(",")
+      .slice(1)
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isFinite(value));
+    if (lineNumbers.length === 0) continue;
+    records.push({
+      page,
+      lines: lineNumbers,
+      y: Number.parseFloat(match[3]!),
+      h: Number.parseFloat(match[5]!),
+    });
+  }
+  return records;
+}
+
+async function gunzip(bytes: Uint8Array): Promise<string> {
+  const streamCtor = (
+    globalThis as unknown as {
+      DecompressionStream?: new (format: "gzip") => ReadableWritablePair;
+    }
+  ).DecompressionStream;
+  if (!streamCtor) {
+    throw new Error("DecompressionStream unsupported");
+  }
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new streamCtor("gzip"));
+  const buffer = await new Response(stream).arrayBuffer();
+  return new TextDecoder().decode(buffer);
+}
+
+/** 前向：源码行 → 最近记录（含该行，否则 ≤ 该行的最大行记录）。 */
+function findForwardRecord(records: SynctexRecord[], line: number): SynctexRecord | null {
+  let exact: SynctexRecord | null = null;
+  let nearestBelow: SynctexRecord | null = null;
+  let nearestBelowMaxLine = -1;
+  for (const record of records) {
+    if (record.lines.includes(line)) {
+      exact = record;
+      break;
+    }
+    let maxLine = -1;
+    for (const value of record.lines) {
+      if (value > maxLine) maxLine = value;
+    }
+    if (maxLine <= line && maxLine > nearestBelowMaxLine) {
+      nearestBelowMaxLine = maxLine;
+      nearestBelow = record;
+    }
+  }
+  return exact ?? nearestBelow;
+}
+
+/** 反向：页 + 归一化纵坐标 → 最近记录。y 范围用该页记录的 min/max 近似。 */
+function findInverseRecord(
+  records: SynctexRecord[],
+  page: number,
+  yRatio: number,
+): SynctexRecord | null {
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (const record of records) {
+    if (record.page !== page) continue;
+    if (record.y < yMin) yMin = record.y;
+    if (record.y + record.h > yMax) yMax = record.y + record.h;
+  }
+  if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) return null;
+  const targetY = yMin + yRatio * (yMax - yMin);
+  let best: SynctexRecord | null = null;
+  let bestDistance = Infinity;
+  for (const record of records) {
+    if (record.page !== page) continue;
+    const distance = Math.abs(record.y - targetY);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = record;
+    }
+  }
+  return best;
+}
+
 /**
- * 科研工作台（ClawsGO 形态：顶栏 + 左侧导航 + 大内容区；视觉沿用 ZCode 设计系统）。
- * 作为右侧面板渲染：与对话同屏共写；onBack 仅在整页嵌入时提供，面板形态不渲染返回按钮。
+ * 科研工作台（ClawsGO 形态：顶栏 + 左侧导航 + 文件树 + 大内容区；视觉沿用 ZCode）。
+ * 右侧面板形态：与对话同屏共写；onBack 仅整页嵌入时提供。
  */
 export function ResearchWorkbench({
   workspacePath,
@@ -146,6 +295,9 @@ export function ResearchWorkbench({
   const [section, setSection] = useState<ResearchSection>("latex");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // 文件树点击 .tex → 切到 LaTeX 页并切换目标（由 LatexWorkbench 消费后清空）。
+  const [pendingTexRel, setPendingTexRel] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ path: string; name: string } | null>(null);
 
   const copyPrompt = useCallback(async (prompt: string, doneLabel: string) => {
     try {
@@ -164,11 +316,16 @@ export function ResearchWorkbench({
   }, [toast]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+    <div className="relative flex h-full min-h-0 flex-col bg-background">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         {onBack ? (
           <>
-            <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-ui-xs" onClick={onBack}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-ui-xs"
+              onClick={onBack}
+            >
               <ArrowLeftIcon className="size-3.5" />
               {intl.formatMessage({ id: "research.backToChat" })}
             </Button>
@@ -185,41 +342,65 @@ export function ResearchWorkbench({
         </span>
       </header>
       {error ? (
-        <div className="border-b border-border bg-destructive/10 px-4 py-2 text-ui-xs break-all text-destructive">
+        <div className="shrink-0 border-b border-border bg-destructive/10 px-4 py-2 text-ui-xs break-all text-destructive">
           {error}
         </div>
       ) : null}
       {toast ? (
-        <div className="border-b border-border bg-primary/10 px-4 py-2 text-ui-xs text-primary">
+        <div className="shrink-0 border-b border-border bg-primary/10 px-4 py-2 text-ui-xs text-primary">
           {toast}
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1">
-        <nav className="flex w-40 shrink-0 flex-col gap-1 border-r border-border p-2">
-          {SECTIONS.map(({ id, icon: SectionIcon, labelId }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setSection(id)}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-2.5 py-2 text-ui-sm transition-colors",
-                section === id
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-              )}
-              aria-current={section === id ? "page" : undefined}
-            >
-              <SectionIcon className="size-4 shrink-0" />
-              {intl.formatMessage({ id: labelId })}
-            </button>
-          ))}
-        </nav>
+        <div className="flex w-52 shrink-0 flex-col border-r border-border">
+          <nav className="flex flex-col gap-1 p-2">
+            {SECTIONS.map(({ id, icon: SectionIcon, labelId }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSection(id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-2.5 py-2 text-ui-sm transition-colors",
+                  section === id
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                )}
+                aria-current={section === id ? "page" : undefined}
+              >
+                <SectionIcon className="size-4 shrink-0" />
+                {intl.formatMessage({ id: labelId })}
+              </button>
+            ))}
+          </nav>
+          <div className="mx-2 border-t border-border" aria-hidden />
+          <div className="px-2 pt-1.5 pb-1 text-ui-xs font-medium text-muted-foreground">
+            {intl.formatMessage({ id: "research.files.title" })}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+            <FileTree
+              workspacePath={workspacePath}
+              fileService={fileService}
+              watcher={fileWatcherService}
+              onOpenFile={(path, name) => {
+                const extension = fileExtension(name);
+                if (extension === "tex") {
+                  setPendingTexRel(path.slice(workspacePath.length + 1));
+                  setSection("latex");
+                  return;
+                }
+                setViewer({ path, name });
+              }}
+            />
+          </div>
+        </div>
         <div className="min-h-0 min-w-0 flex-1">
           {section === "latex" ? (
             <LatexWorkbench
               workspacePath={workspacePath}
               fileService={fileService}
               watcher={fileWatcherService}
+              pendingTexRel={pendingTexRel}
+              onPendingTexConsumed={() => setPendingTexRel(null)}
               onError={setError}
               copyPrompt={copyPrompt}
             />
@@ -231,15 +412,283 @@ export function ResearchWorkbench({
               onError={setError}
               copyPrompt={copyPrompt}
             />
-          ) : (
+          ) : section === "experiments" ? (
             <ExperimentsList
               workspacePath={workspacePath}
               fileService={fileService}
               watcher={fileWatcherService}
               onError={setError}
             />
+          ) : section === "literature" ? (
+            <LiteratureLibrary
+              workspacePath={workspacePath}
+              fileService={fileService}
+              watcher={fileWatcherService}
+              onError={setError}
+              copyPrompt={copyPrompt}
+            />
+          ) : (
+            <DeliverablesCenter
+              workspacePath={workspacePath}
+              fileService={fileService}
+              watcher={fileWatcherService}
+              onError={setError}
+              copyPrompt={copyPrompt}
+            />
           )}
         </div>
+      </div>
+      {viewer ? (
+        <OverlayFileViewer
+          path={viewer.path}
+          name={viewer.name}
+          fileService={fileService}
+          onClose={() => setViewer(null)}
+          onError={setError}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ── 文件树（左栏下方，IDE 式懒加载） ──
+
+const TREE_IGNORED_DIRS = new Set([
+  "node_modules",
+  "__pycache__",
+  "build",
+  "install",
+  "log",
+  "dist",
+  "out",
+  "target",
+]);
+
+function FileTree({
+  workspacePath,
+  fileService,
+  watcher,
+  onOpenFile,
+}: {
+  workspacePath: string;
+  fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
+  onOpenFile: (path: string, name: string) => void;
+}) {
+  const [children, setChildren] = useState<Record<string, FileEntry[] | null>>({});
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const loadDir = useCallback(
+    async (dirPath: string) => {
+      setChildren((current) => ({ ...current, [dirPath]: null }));
+      try {
+        const entries = await fileService.readdir({ path: dirPath });
+        const visible = entries
+          .filter(
+            (entry) =>
+              !entry.name.startsWith(".") &&
+              !(entry.type === "directory" && TREE_IGNORED_DIRS.has(entry.name)),
+          )
+          .sort((left, right) => {
+            if (left.type !== right.type) return left.type === "directory" ? -1 : 1;
+            return left.name.localeCompare(right.name);
+          });
+        setChildren((current) => ({ ...current, [dirPath]: visible }));
+      } catch {
+        setChildren((current) => ({ ...current, [dirPath]: [] }));
+      }
+    },
+    [fileService],
+  );
+
+  useEffect(() => {
+    setChildren({});
+    setExpanded(new Set());
+    void loadDir(workspacePath);
+  }, [workspacePath, loadDir, reloadKey]);
+
+  useDirChangeWatcher(
+    workspacePath,
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
+
+  const toggleDir = useCallback(
+    (dirPath: string) => {
+      setExpanded((current) => {
+        const next = new Set(current);
+        if (next.has(dirPath)) {
+          next.delete(dirPath);
+        } else {
+          next.add(dirPath);
+        }
+        return next;
+      });
+      void loadDir(dirPath);
+    },
+    [loadDir],
+  );
+
+  const renderEntries = (dirPath: string, depth: number): React.ReactNode => {
+    const entries = children[dirPath];
+    if (entries == null) {
+      return (
+        <div
+          key={`${dirPath}:loading`}
+          className="py-0.5 text-ui-xs text-muted-foreground/60"
+          style={{ paddingLeft: 8 + depth * 12 }}
+        >
+          …
+        </div>
+      );
+    }
+    return entries.map((entry) => {
+      const isDir = entry.type === "directory";
+      const isOpen = expanded.has(entry.path);
+      const extension = fileExtension(entry.name);
+      const Icon = isDir
+        ? FolderIcon
+        : extension === "tex"
+          ? FileTextIcon
+          : IMAGE_EXTENSIONS.has(extension)
+            ? ImageIcon
+            : FileIcon;
+      return (
+        <div key={entry.path}>
+          <button
+            type="button"
+            className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-ui-xs text-foreground/90 hover:bg-muted/50"
+            style={{ paddingLeft: 4 + depth * 12 }}
+            onClick={() => {
+              if (isDir) {
+                toggleDir(entry.path);
+              } else {
+                onOpenFile(entry.path, entry.name);
+              }
+            }}
+            title={entry.path}
+          >
+            {isDir ? (
+              isOpen ? (
+                <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground" />
+              )
+            ) : (
+              <span className="w-3 shrink-0" aria-hidden />
+            )}
+            <Icon
+              className={cn("size-3 shrink-0", isDir ? "text-primary/70" : "text-muted-foreground")}
+            />
+            <span className="truncate">{entry.name}</span>
+          </button>
+          {isDir && isOpen ? renderEntries(entry.path, depth + 1) : null}
+        </div>
+      );
+    });
+  };
+
+  return <div className="text-ui-xs">{renderEntries(workspacePath, 0)}</div>;
+}
+
+// ── 文件预览浮层（文件树点击图片/PDF/文本） ──
+
+function OverlayFileViewer({
+  path,
+  name,
+  fileService,
+  onClose,
+  onError,
+}: {
+  path: string;
+  name: string;
+  fileService: FileServiceLike;
+  onClose: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const { intl } = useZCodeIntl();
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+    setImageDataUrl(null);
+    setText(null);
+    setPdfBytes(null);
+    setFailed(false);
+    const extension = fileExtension(name);
+    void (async () => {
+      try {
+        if (IMAGE_EXTENSIONS.has(extension)) {
+          const preview = await fileService.readMediaPreview({ path, maxBytes: 4 * 1024 * 1024 });
+          if (!disposed) {
+            setImageDataUrl(`data:${preview.mediaType};base64,${preview.dataBase64}`);
+          }
+        } else if (extension === "pdf") {
+          const whole = await readWholeFile(fileService, path, OVERLAY_PDF_MAX_BYTES);
+          if (!disposed) {
+            if (whole) setPdfBytes(whole);
+            else setFailed(true);
+          }
+        } else {
+          const slice = await fileService.readTextFile({ path, length: TEXT_PREVIEW_LIMIT_BYTES });
+          if (!disposed) setText(slice.content);
+        }
+      } catch {
+        if (!disposed) setFailed(true);
+      }
+    })().catch((loadError: unknown) => {
+      if (!disposed) onError(loadError instanceof Error ? loadError.message : String(loadError));
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [path, name, fileService, onError]);
+
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col bg-background/95 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <FileIcon className="size-3.5 text-muted-foreground" />
+        <span className="truncate text-ui-xs font-medium" title={path}>
+          {name}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-6 w-6 p-0"
+          onClick={onClose}
+          aria-label={intl.formatMessage({ id: "research.viewer.close" })}
+        >
+          <XIcon className="size-4" />
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto p-3">
+        {imageDataUrl ? (
+          <img src={imageDataUrl} alt={name} className="mx-auto max-h-full object-contain" />
+        ) : pdfBytes ? (
+          <Suspense
+            fallback={
+              <div className="p-3 text-ui-xs text-muted-foreground">
+                {intl.formatMessage({ id: "research.pdf.loading" })}
+              </div>
+            }
+          >
+            <PdfViewer source={pdfBytes} className="h-full" />
+          </Suspense>
+        ) : text != null ? (
+          <pre className="font-mono text-ui-xs leading-relaxed whitespace-pre-wrap">{text}</pre>
+        ) : failed ? (
+          <div className="p-3 text-ui-xs text-muted-foreground">
+            {intl.formatMessage({ id: "research.viewer.unsupported" })}
+          </div>
+        ) : (
+          <div className="p-3 text-ui-xs text-muted-foreground">
+            {intl.formatMessage({ id: "research.loading" })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -267,16 +716,22 @@ interface FileServiceLike {
 
 type CopyPromptFn = (prompt: string, doneLabel: string) => Promise<void>;
 
+// ── LaTeX 工作台（源码/PDF 并排 + SyncTeX 双向跳转） ──
+
 function LatexWorkbench({
   workspacePath,
   fileService,
   watcher,
+  pendingTexRel,
+  onPendingTexConsumed,
   onError,
   copyPrompt,
 }: {
   workspacePath: string;
   fileService: FileServiceLike;
   watcher: WatcherServiceLike | undefined;
+  pendingTexRel: string | null;
+  onPendingTexConsumed: () => void;
   onError: (message: string | null) => void;
   copyPrompt: CopyPromptFn;
 }) {
@@ -289,6 +744,10 @@ function LatexWorkbench({
   const [pdfSource, setPdfSource] = useState<PdfViewerSource | null>(null);
   const [pdfMissing, setPdfMissing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [synctexRecords, setSynctexRecords] = useState<SynctexRecord[] | null>(null);
+  const [activeLine, setActiveLine] = useState<number | null>(null);
+  const [targetPage, setTargetPage] = useState<number | undefined>(undefined);
+  const sourceScrollRef = useRef<HTMLDivElement | null>(null);
 
   const texAbsPath = texRelPath ? joinPath(workspacePath, texRelPath) : null;
   const pdfAbsPath = texAbsPath ? texAbsPath.replace(/\.tex$/, ".pdf") : null;
@@ -343,6 +802,16 @@ function LatexWorkbench({
     };
   }, [workspacePath, fileService]);
 
+  // 文件树指路：切目标并并入下拉选项。
+  useEffect(() => {
+    if (!pendingTexRel) return;
+    setTexFiles((current) =>
+      current.includes(pendingTexRel) ? current : [...current, pendingTexRel],
+    );
+    setTexRelPath(pendingTexRel);
+    onPendingTexConsumed();
+  }, [pendingTexRel, onPendingTexConsumed]);
+
   // agent 在对话侧编译/改稿后，源码与 PDF 自动刷新。
   useDirChangeWatcher(texDir, watcher, useCallback(() => setReloadKey((key) => key + 1), []));
 
@@ -354,6 +823,8 @@ function LatexWorkbench({
     setSourceMissing(false);
     setPdfSource(null);
     setPdfMissing(false);
+    setSynctexRecords(null);
+    setActiveLine(null);
 
     void (async () => {
       try {
@@ -375,25 +846,8 @@ function LatexWorkbench({
           return;
         }
         if (fileStat.size <= PDF_FULL_READ_MAX_BYTES) {
-          let offset = 0;
-          const chunks: Uint8Array[] = [];
-          while (offset < fileStat.size) {
-            const chunk = await fileService.readFileRange({
-              path: pdfAbsPath,
-              offset,
-              length: Math.min(512 * 1024, fileStat.size - offset),
-            });
-            if (chunk.length === 0) break;
-            chunks.push(chunk);
-            offset += chunk.length;
-          }
-          const whole = new Uint8Array(offset);
-          let cursor = 0;
-          for (const chunk of chunks) {
-            whole.set(chunk, cursor);
-            cursor += chunk.length;
-          }
-          if (!disposed) setPdfSource(whole);
+          const whole = await readWholeFile(fileService, pdfAbsPath, PDF_FULL_READ_MAX_BYTES);
+          if (whole && !disposed) setPdfSource(whole);
         } else {
           setPdfSource({
             totalBytes: fileStat.size,
@@ -403,6 +857,21 @@ function LatexWorkbench({
         }
       } catch {
         if (!disposed) setPdfMissing(true);
+      }
+
+      // SyncTeX：编译带 -synctex=1 时与 PDF 同目录出现 main.synctex.gz。
+      try {
+        const synctexBytes = await readWholeFile(
+          fileService,
+          `${pdfAbsPath}.synctex.gz`,
+          SYNCTEX_MAX_BYTES,
+        );
+        if (!synctexBytes || disposed) return;
+        const synctexText = await gunzip(synctexBytes);
+        if (disposed) return;
+        setSynctexRecords(parseSynctexRecords(synctexText));
+      } catch {
+        // 没有 synctex 文件：双向跳转静默关闭。
       }
     })().catch((loadError: unknown) => {
       if (!disposed) onError(loadError instanceof Error ? loadError.message : String(loadError));
@@ -418,6 +887,33 @@ function LatexWorkbench({
     loadError: intl.formatMessage({ id: "research.pdf.error" }),
   };
 
+  // 前向跳转：点源码行 → PDF 翻到对应页。
+  const handleLineClick = useCallback(
+    (line: number) => {
+      setActiveLine(line);
+      if (!synctexRecords) return;
+      const record = findForwardRecord(synctexRecords, line);
+      if (record) setTargetPage(record.page);
+    },
+    [synctexRecords],
+  );
+
+  // 反向跳转：点 PDF 页面 → 源码滚动并高亮对应行。
+  const handlePdfPageClick = useCallback(
+    (page: number, _xRatio: number, yRatio: number) => {
+      if (!synctexRecords) return;
+      const record = findInverseRecord(synctexRecords, page, yRatio);
+      if (!record) return;
+      const line = record.lines[0] ?? null;
+      if (line == null) return;
+      setActiveLine(line);
+      sourceScrollRef.current
+        ?.querySelector(`[data-line="${line}"]`)
+        ?.scrollIntoView({ block: "center" });
+    },
+    [synctexRecords],
+  );
+
   if (discovered && texFiles.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -428,13 +924,15 @@ function LatexWorkbench({
     );
   }
 
+  const sourceLines = useMemo(
+    () => (source ? source.split("\n").slice(0, SOURCE_RENDER_LINE_CAP) : []),
+    [source],
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-4 py-2.5">
-        <Select
-          value={texRelPath ?? undefined}
-          onValueChange={(value) => setTexRelPath(value)}
-        >
+      <div className="flex shrink-0 items-center gap-2 px-4 py-2.5">
+        <Select value={texRelPath ?? undefined} onValueChange={(value) => setTexRelPath(value)}>
           <SelectTrigger
             size="lg"
             className="w-72 text-ui-xs"
@@ -465,10 +963,7 @@ function LatexWorkbench({
           disabled={!texRelPath}
           onClick={() =>
             void copyPrompt(
-              intl.formatMessage(
-                { id: "research.latex.compilePrompt" },
-                { path: texRelPath ?? "" },
-              ),
+              intl.formatMessage({ id: "research.latex.compilePrompt" }, { path: texRelPath ?? "" }),
               intl.formatMessage({ id: "research.promptCopied" }),
             )
           }
@@ -476,25 +971,54 @@ function LatexWorkbench({
           <ClipboardCopyIcon className="size-3.5" />
           {intl.formatMessage({ id: "research.latex.compile" })}
         </Button>
-        <span className="ml-auto text-ui-xs text-muted-foreground">
-          {intl.formatMessage({ id: "research.latex.autoHint" })}
+        <span
+          className="ml-auto text-ui-xs text-muted-foreground"
+          title={synctexRecords ? undefined : intl.formatMessage({ id: "research.synctex.missing" })}
+        >
+          {synctexRecords
+            ? intl.formatMessage({ id: "research.synctex.ready" })
+            : intl.formatMessage({ id: "research.synctex.missingShort" })}
         </span>
       </div>
-      {/* 整页形态：源码与 PDF 左右并排（窄面板时代是上下堆叠） */}
+      {/* 源码与 PDF 左右并排；SyncTeX 就绪时点行跳页、点页跳行。 */}
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 px-4 pb-4">
         <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
           <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
             {texRelPath}
           </div>
-          <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-ui-xs leading-relaxed">
-            {sourceMissing
-              ? intl.formatMessage({ id: "research.latex.sourceMissing" })
-              : (source ?? intl.formatMessage({ id: "research.loading" }))}
-          </pre>
+          <div
+            ref={sourceScrollRef}
+            className="min-h-0 flex-1 overflow-auto p-2 font-mono text-ui-xs leading-relaxed"
+          >
+            {sourceMissing ? (
+              <span>{intl.formatMessage({ id: "research.latex.sourceMissing" })}</span>
+            ) : sourceLines.length > 0 ? (
+              sourceLines.map((line, index) => (
+                <div
+                  key={index}
+                  data-line={index + 1}
+                  className={cn(
+                    "flex cursor-pointer gap-2 rounded px-1 hover:bg-muted/60",
+                    activeLine === index + 1 && "bg-accent",
+                  )}
+                  onClick={() => handleLineClick(index + 1)}
+                >
+                  <span className="w-8 shrink-0 select-none text-right text-muted-foreground/50">
+                    {index + 1}
+                  </span>
+                  <span className="whitespace-pre-wrap break-all">{line || " "}</span>
+                </div>
+              ))
+            ) : (
+              <span>{intl.formatMessage({ id: "research.loading" })}</span>
+            )}
+          </div>
         </div>
         <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
-            <span>{pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath?.split("/").pop()}</span>
+            <span>
+              {pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath?.split("/").pop()}
+            </span>
             <span className="ml-auto">{intl.formatMessage({ id: "research.pdf.preview" })}</span>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
@@ -510,7 +1034,13 @@ function LatexWorkbench({
                   </div>
                 }
               >
-                <PdfViewer source={pdfSource} labels={pdfLabels} className="h-full" />
+                <PdfViewer
+                  source={pdfSource}
+                  labels={pdfLabels}
+                  className="h-full"
+                  targetPage={targetPage}
+                  onPageClick={handlePdfPageClick}
+                />
               </Suspense>
             ) : (
               <div className="p-3 text-ui-xs text-muted-foreground">
@@ -524,10 +1054,19 @@ function LatexWorkbench({
   );
 }
 
+// ── 图表库（图墙 + 图上圈注 + 版本历史指令） ──
+
 interface FigureItem {
   absPath: string;
   relPath: string;
   group: string;
+}
+
+interface AnnotationRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 function FiguresGallery({
@@ -551,6 +1090,9 @@ function FiguresGallery({
   const [scanned, setScanned] = useState(false);
   const [watchedRoot, setWatchedRoot] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [annotations, setAnnotations] = useState<AnnotationRect[]>([]);
+  const [draftRect, setDraftRect] = useState<AnnotationRect | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -634,7 +1176,7 @@ function FiguresGallery({
       setFigures(found);
       setScanned(true);
 
-      // 缩略图按需生成：仅前 40 张，整页形态放宽上限但仍防大目录拖垮。
+      // 缩略图按需生成：仅前 40 张，防大目录拖垮。
       for (const figure of found.slice(0, 40)) {
         try {
           const preview = await fileService.readMediaPreview({
@@ -676,6 +1218,26 @@ function FiguresGallery({
     return [...groups.entries()];
   }, [figures]);
 
+  const describeAnnotations = useCallback((rects: AnnotationRect[]): string => {
+    if (rects.length === 0) return "";
+    return rects
+      .map(
+        (rect, index) =>
+          `区域${index + 1}：x ${rect.x.toFixed(0)}%~${(rect.x + rect.w).toFixed(0)}%、y ${rect.y.toFixed(0)}%~${(rect.y + rect.h).toFixed(0)}%`,
+      )
+      .join("；");
+  }, []);
+
+  const pointerPosToPercent = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    return {
+      x: Math.min(100, Math.max(0, x)),
+      y: Math.min(100, Math.max(0, y)),
+    };
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
@@ -694,16 +1256,78 @@ function FiguresGallery({
       </div>
       {selected ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/20">
-            {previews[selected.absPath] ? (
-              <img
-                src={previews[selected.absPath]}
-                alt={selected.relPath}
-                className="mx-auto max-h-full object-contain"
-              />
-            ) : (
-              <div className="p-3 text-ui-xs text-muted-foreground">{selected.relPath}</div>
-            )}
+          <div className="relative min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/20">
+            <div
+              className="relative inline-block cursor-crosshair"
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                const pos = pointerPosToPercent(event);
+                dragStartRef.current = pos;
+                setDraftRect({ x: pos.x, y: pos.y, w: 0, h: 0 });
+              }}
+              onPointerMove={(event) => {
+                const start = dragStartRef.current;
+                if (!start) return;
+                const pos = pointerPosToPercent(event);
+                setDraftRect({
+                  x: Math.min(start.x, pos.x),
+                  y: Math.min(start.y, pos.y),
+                  w: Math.abs(pos.x - start.x),
+                  h: Math.abs(pos.y - start.y),
+                });
+              }}
+              onPointerUp={() => {
+                const start = dragStartRef.current;
+                dragStartRef.current = null;
+                if (start && draftRect && draftRect.w >= 2 && draftRect.h >= 2) {
+                  setAnnotations((current) => [...current, draftRect]);
+                }
+                setDraftRect(null);
+              }}
+            >
+              {previews[selected.absPath] ? (
+                <img
+                  src={previews[selected.absPath]}
+                  alt={selected.relPath}
+                  className="block max-h-[60vh] select-none object-contain"
+                  draggable={false}
+                />
+              ) : (
+                <div className="p-3 text-ui-xs text-muted-foreground">{selected.relPath}</div>
+              )}
+              {annotations.map((rect, index) => (
+                <div
+                  key={`${rect.x}-${rect.y}-${index}`}
+                  className="absolute cursor-pointer border-2 border-destructive bg-destructive/10"
+                  style={{
+                    left: `${rect.x}%`,
+                    top: `${rect.y}%`,
+                    width: `${rect.w}%`,
+                    height: `${rect.h}%`,
+                  }}
+                  title={intl.formatMessage({ id: "research.figures.removeAnnotation" })}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setAnnotations((current) => current.filter((_, i) => i !== index));
+                  }}
+                >
+                  <span className="absolute -top-2 -left-2 flex size-4 items-center justify-center rounded-full bg-destructive text-ui-xs font-medium text-white">
+                    {index + 1}
+                  </span>
+                </div>
+              ))}
+              {draftRect ? (
+                <div
+                  className="absolute border-2 border-dashed border-destructive/70"
+                  style={{
+                    left: `${draftRect.x}%`,
+                    top: `${draftRect.y}%`,
+                    width: `${draftRect.w}%`,
+                    height: `${draftRect.h}%`,
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Input
@@ -712,11 +1336,43 @@ function FiguresGallery({
               placeholder={intl.formatMessage({ id: "research.figures.commentPlaceholder" })}
               className="h-8 text-ui-xs"
             />
+            {annotations.length > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 text-ui-xs"
+                onClick={() => setAnnotations([])}
+              >
+                <EraserIcon className="size-3.5" />
+                {intl.formatMessage({ id: "research.figures.clearAnnotations" })}
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
               className="h-8 shrink-0 text-ui-xs"
-              onClick={() => setSelected(null)}
+              onClick={() =>
+                void copyPrompt(
+                  intl.formatMessage(
+                    { id: "research.figures.historyPrompt" },
+                    { path: selected.relPath },
+                  ),
+                  intl.formatMessage({ id: "research.promptCopied" }),
+                )
+              }
+            >
+              <HistoryIcon className="size-3.5" />
+              {intl.formatMessage({ id: "research.figures.history" })}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 text-ui-xs"
+              onClick={() => {
+                setSelected(null);
+                setAnnotations([]);
+                setComment("");
+              }}
             >
               {intl.formatMessage({ id: "research.figures.back" })}
             </Button>
@@ -724,19 +1380,26 @@ function FiguresGallery({
               size="sm"
               className="h-8 shrink-0 text-ui-xs"
               disabled={!comment.trim()}
-              onClick={() =>
-                void copyPrompt(
-                  intl.formatMessage(
-                    { id: "research.figures.feedbackPrompt" },
-                    { path: selected.relPath, comment: comment.trim() },
-                  ),
-                  intl.formatMessage({ id: "research.promptCopied" }),
-                )
-              }
+              onClick={() => {
+                const annotationText = describeAnnotations(annotations);
+                const prompt = annotationText
+                  ? intl.formatMessage(
+                      { id: "research.figures.feedbackPromptWithRegions" },
+                      { path: selected.relPath, comment: comment.trim(), regions: annotationText },
+                    )
+                  : intl.formatMessage(
+                      { id: "research.figures.feedbackPrompt" },
+                      { path: selected.relPath, comment: comment.trim() },
+                    );
+                void copyPrompt(prompt, intl.formatMessage({ id: "research.promptCopied" }));
+              }}
             >
               <ClipboardCopyIcon className="size-3.5" />
               {intl.formatMessage({ id: "research.figures.sendFeedback" })}
             </Button>
+          </div>
+          <div className="text-ui-xs text-muted-foreground">
+            {intl.formatMessage({ id: "research.figures.annotateHint" })}
           </div>
         </div>
       ) : (
@@ -781,6 +1444,8 @@ function FiguresGallery({
     </div>
   );
 }
+
+// ── 实验记录 ──
 
 interface ExperimentCard {
   dirName: string;
@@ -918,6 +1583,433 @@ function ExperimentsList({
         {scanned && cards.length === 0 ? (
           <div className="p-3 text-ui-xs text-muted-foreground">
             {intl.formatMessage({ id: "research.experiments.empty" })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ── 文献库（读 docs/lit/ 约定目录） ──
+
+interface LitPaper {
+  slug: string;
+  title: string;
+  year: string | null;
+  authors: string | null;
+  sourceFile: string;
+}
+
+interface LitGroup {
+  slug: string;
+  papers: LitPaper[];
+}
+
+/** 从 BibTeX 正文段逐行抽字段：不构造动态正则，字段名固定匹配。 */
+function parseBibtexEntryFields(body: string): {
+  title: string | null;
+  year: string | null;
+  authors: string | null;
+} {
+  let title: string | null = null;
+  let year: string | null = null;
+  let authors: string | null = null;
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.trim().replace(/,+$/, "");
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line
+      .slice(0, eq)
+      .trim()
+      .toLowerCase();
+    const value = line
+      .slice(eq + 1)
+      .trim()
+      .replace(/^[{"]/, "")
+      .replace(/[}"]$/, "")
+      .trim();
+    if (!value) continue;
+    if (key === "title" && title === null) {
+      title = value;
+    } else if (key === "year" && year === null) {
+      year = value;
+    } else if (key === "author" && authors === null) {
+      authors = value;
+    }
+  }
+  return { title, year, authors };
+}
+
+const BIBTEX_ENTRY_PATTERN = /@(article|inproceedings|book|incollection|misc|techreport)\s*\{([^,]+),([\s\S]*?)\n\}/g;
+
+function parseBibtexEntries(content: string, slug: string, sourceFile: string): LitPaper[] {
+  const papers: LitPaper[] = [];
+  for (const match of content.matchAll(BIBTEX_ENTRY_PATTERN)) {
+    const fields = parseBibtexEntryFields(match[3] ?? "");
+    papers.push({
+      slug,
+      title: fields.title ?? match[2]!,
+      year: fields.year,
+      authors: fields.authors,
+      sourceFile,
+    });
+  }
+  return papers;
+}
+
+function LiteratureLibrary({
+  workspacePath,
+  fileService,
+  watcher,
+  onError,
+  copyPrompt,
+}: {
+  workspacePath: string;
+  fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
+  onError: (message: string | null) => void;
+  copyPrompt: CopyPromptFn;
+}) {
+  const { intl } = useZCodeIntl();
+  const [groups, setGroups] = useState<LitGroup[]>([]);
+  const [scanned, setScanned] = useState(false);
+  const [selectedPaper, setSelectedPaper] = useState<LitPaper | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useDirChangeWatcher(
+    joinPath(workspacePath, "docs/lit"),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    onError(null);
+    setGroups([]);
+    setSelectedPaper(null);
+    setScanned(false);
+
+    void (async () => {
+      let litEntries: FileEntry[];
+      try {
+        litEntries = await fileService.readdir({ path: joinPath(workspacePath, "docs/lit") });
+      } catch {
+        if (!disposed) setScanned(true);
+        return;
+      }
+      const loaded: LitGroup[] = [];
+      for (const entry of litEntries.filter((item) => item.type === "directory")) {
+        let files: FileEntry[];
+        try {
+          files = await fileService.readdir({ path: entry.path });
+        } catch {
+          continue;
+        }
+        const papers: LitPaper[] = [];
+        for (const file of files.filter(
+          (item) => item.type === "file" && fileExtension(item.name) === "md",
+        )) {
+          try {
+            const text = await fileService.readTextFile({ path: file.path, length: 512 * 1024 });
+            if (disposed) return;
+            papers.push(...parseBibtexEntries(text.content, entry.name, file.path));
+          } catch {
+            // 单文件解析失败跳过。
+          }
+        }
+        if (papers.length > 0) loaded.push({ slug: entry.name, papers });
+      }
+      if (disposed) return;
+      setGroups(loaded);
+      setScanned(true);
+    })().catch((scanError: unknown) => {
+      if (!disposed) onError(scanError instanceof Error ? scanError.message : String(scanError));
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [workspacePath, fileService, reloadKey, onError]);
+
+  const totalPapers = useMemo(
+    () => groups.reduce((sum, group) => sum + group.papers.length, 0),
+    [groups],
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <span className="text-ui-xs text-muted-foreground">
+          {intl.formatMessage({ id: "research.literature.count" }, { count: totalPapers })}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-8 px-2.5 text-ui-xs"
+          onClick={() => setReloadKey((key) => key + 1)}
+        >
+          <RefreshCwIcon className="size-3.5" />
+          {intl.formatMessage({ id: "research.literature.rescan" })}
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 px-2.5 text-ui-xs"
+          onClick={() =>
+            void copyPrompt(
+              intl.formatMessage({ id: "research.literature.continuePrompt" }),
+              intl.formatMessage({ id: "research.promptCopied" }),
+            )
+          }
+        >
+          <ClipboardCopyIcon className="size-3.5" />
+          {intl.formatMessage({ id: "research.literature.continue" })}
+        </Button>
+      </div>
+      <div className="flex min-h-0 flex-1 gap-3 px-4 pb-4">
+        <div className="min-h-0 w-1/2 overflow-auto">
+          {groups.map((group) => (
+            <div key={group.slug} className="mb-4">
+              <div className="mb-1.5 text-ui-sm font-medium text-muted-foreground">
+                {group.slug}/ · {group.papers.length}
+              </div>
+              {group.papers.map((paper) => (
+                <button
+                  key={`${paper.sourceFile}:${paper.title}`}
+                  type="button"
+                  className={cn(
+                    "mb-1 block w-full rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-border hover:bg-muted/30",
+                    selectedPaper === paper && "border-border bg-accent",
+                  )}
+                  onClick={() => setSelectedPaper(paper)}
+                >
+                  <div className="truncate text-ui-sm" title={paper.title}>
+                    {paper.title}
+                  </div>
+                  <div className="truncate text-ui-xs text-muted-foreground">
+                    {[paper.authors, paper.year].filter(Boolean).join(" · ") || paper.slug}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ))}
+          {scanned && totalPapers === 0 ? (
+            <div className="p-3 text-ui-xs text-muted-foreground">
+              {intl.formatMessage({ id: "research.literature.empty" })}
+            </div>
+          ) : null}
+        </div>
+        <div className="min-h-0 w-1/2 overflow-auto rounded-lg border border-border p-3.5">
+          {selectedPaper ? (
+            <div>
+              <div className="text-ui-base font-medium">{selectedPaper.title}</div>
+              <div className="mt-1 text-ui-xs text-muted-foreground">
+                {[selectedPaper.authors, selectedPaper.year].filter(Boolean).join(" · ")}
+              </div>
+              <div className="mt-1 text-ui-xs text-muted-foreground/70">
+                {selectedPaper.sourceFile}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-ui-xs"
+                  onClick={() =>
+                    void copyPrompt(
+                      intl.formatMessage(
+                        { id: "research.literature.verifyPrompt" },
+                        { title: selectedPaper.title },
+                      ),
+                      intl.formatMessage({ id: "research.promptCopied" }),
+                    )
+                  }
+                >
+                  <ClipboardCopyIcon className="size-3.5" />
+                  {intl.formatMessage({ id: "research.literature.verify" })}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-ui-xs text-muted-foreground">
+              {intl.formatMessage({ id: "research.literature.selectHint" })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 交付物中心（投稿包 / 评审记录 / 文献调研 / 实验证据） ──
+
+interface DeliverableRow {
+  label: string;
+  detail: string;
+  path: string;
+}
+
+function DeliverablesCenter({
+  workspacePath,
+  fileService,
+  watcher,
+  onError,
+  copyPrompt,
+}: {
+  workspacePath: string;
+  fileService: FileServiceLike;
+  watcher: WatcherServiceLike | undefined;
+  onError: (message: string | null) => void;
+  copyPrompt: CopyPromptFn;
+}) {
+  const { intl } = useZCodeIntl();
+  const [rows, setRows] = useState<DeliverableRow[]>([]);
+  const [scanned, setScanned] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useDirChangeWatcher(
+    joinPath(workspacePath, "paper"),
+    watcher,
+    useCallback(() => setReloadKey((key) => key + 1), []),
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    onError(null);
+    setRows([]);
+    setScanned(false);
+
+    void (async () => {
+      const loaded: DeliverableRow[] = [];
+      const scanFiles = async (dirRel: string, label: string) => {
+        let entries: FileEntry[];
+        try {
+          entries = await fileService.readdir({ path: joinPath(workspacePath, dirRel) });
+        } catch {
+          return;
+        }
+        for (const entry of entries) {
+          if (entry.type !== "file") continue;
+          loaded.push({ label, detail: `${dirRel}/${entry.name}`, path: entry.path });
+        }
+      };
+
+      // 投稿包
+      await scanFiles(
+        "paper/submission",
+        intl.formatMessage({ id: "research.deliverables.submission" }),
+      );
+      // 评审记录目录
+      try {
+        const reviews = await fileService.readdir({
+          path: joinPath(workspacePath, "paper/reviews"),
+        });
+        for (const entry of reviews.filter((item) => item.type === "directory")) {
+          loaded.push({
+            label: intl.formatMessage({ id: "research.deliverables.reviews" }),
+            detail: `paper/reviews/${entry.name}/`,
+            path: entry.path,
+          });
+        }
+      } catch {
+        // 无评审记录。
+      }
+      // 文献调研目录
+      try {
+        const lit = await fileService.readdir({ path: joinPath(workspacePath, "docs/lit") });
+        for (const entry of lit.filter((item) => item.type === "directory")) {
+          loaded.push({
+            label: intl.formatMessage({ id: "research.deliverables.lit" }),
+            detail: `docs/lit/${entry.name}/`,
+            path: entry.path,
+          });
+        }
+      } catch {
+        // 无文献调研。
+      }
+      // 实验证据（计数行）
+      try {
+        const experiments = await fileService.readdir({
+          path: joinPath(workspacePath, "experiments"),
+        });
+        const count = experiments.filter((item) => item.type === "directory").length;
+        if (count > 0) {
+          loaded.push({
+            label: intl.formatMessage({ id: "research.deliverables.experiments" }),
+            detail: intl.formatMessage(
+              { id: "research.deliverables.experimentsCount" },
+              { count },
+            ),
+            path: joinPath(workspacePath, "experiments"),
+          });
+        }
+      } catch {
+        // 无实验目录。
+      }
+
+      if (disposed) return;
+      setRows(loaded);
+      setScanned(true);
+    })().catch((scanError: unknown) => {
+      if (!disposed) onError(scanError instanceof Error ? scanError.message : String(scanError));
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [workspacePath, fileService, reloadKey, onError, intl]);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <span className="text-ui-xs text-muted-foreground">
+          {intl.formatMessage({ id: "research.deliverables.count" }, { count: rows.length })}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-8 px-2.5 text-ui-xs"
+          onClick={() => setReloadKey((key) => key + 1)}
+        >
+          <RefreshCwIcon className="size-3.5" />
+          {intl.formatMessage({ id: "research.deliverables.rescan" })}
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 px-2.5 text-ui-xs"
+          onClick={() =>
+            void copyPrompt(
+              intl.formatMessage({ id: "research.deliverables.runSubmitPrompt" }),
+              intl.formatMessage({ id: "research.promptCopied" }),
+            )
+          }
+        >
+          <ClipboardCopyIcon className="size-3.5" />
+          {intl.formatMessage({ id: "research.deliverables.runSubmit" })}
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
+        {rows.map((row) => (
+          <button
+            key={row.path}
+            type="button"
+            className="mb-2 flex w-full items-center gap-3 rounded-lg border border-border px-3.5 py-3 text-left transition-colors hover:border-primary/50"
+            onClick={() =>
+              void copyPrompt(
+                row.path,
+                intl.formatMessage({ id: "research.deliverables.pathCopied" }),
+              )
+            }
+            title={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
+          >
+            <PackageIcon className="size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <div className="truncate text-ui-sm">{row.detail}</div>
+              <div className="truncate text-ui-xs text-muted-foreground">{row.label}</div>
+            </div>
+          </button>
+        ))}
+        {scanned && rows.length === 0 ? (
+          <div className="p-3 text-ui-xs text-muted-foreground">
+            {intl.formatMessage({ id: "research.deliverables.empty" })}
           </div>
         ) : null}
       </div>

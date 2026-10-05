@@ -6500,7 +6500,7 @@ const zhCN: Record<string, string> = {
   "research.latex.reload": "刷新",
   "research.latex.compile": "编译",
   "research.latex.compilePrompt":
-    "请用 xelatex 编译 {path}（跑两遍让引用稳定），只把错误行和修复建议贴给我；成功就回一句 OK。",
+    "请用 xelatex -synctex=1 编译 {path}（跑两遍让引用稳定），只把错误行和修复建议贴给我；成功就回一句 OK。",
   "research.latex.sourceMissing": "源文件不存在（先输入正确路径，或让 agent 生成模板）",
   "research.pdf.preview": "PDF 预览",
   "research.pdf.loading": "PDF 加载中…",
@@ -6525,6 +6525,46 @@ const zhCN: Record<string, string> = {
   "research.latex.autoHint": "文件变化自动刷新",
   "research.latex.noFiles":
     "没找到 .tex 文件。在左侧对话说「帮我在 paper/ 下生成论文 LaTeX 模板」，生成后这里会自动出现",
+  "research.files.title": "文件",
+  "research.viewer.close": "关闭",
+  "research.viewer.unsupported": "该文件过大或暂不支持预览",
+  "research.synctex.ready": "SyncTeX 已连接：点源码行跳页，点 PDF 页跳行",
+  "research.synctex.missingShort": "SyncTeX 未连接",
+  "research.synctex.missing":
+    "未找到 .synctex.gz——点「编译」用带 -synctex=1 的指令重新编译后，即可源码行↔PDF 页双向跳转",
+  "research.figures.annotateHint": "在图上直接拖拽画框圈注（点框删除），框的位置会随反馈指令一起交给 agent",
+  "research.figures.clearAnnotations": "清空标注",
+  "research.figures.removeAnnotation": "点击删除此标注框",
+  "research.figures.history": "历史版本",
+  "research.figures.historyPrompt":
+    "请查看 {path} 的 git 提交历史（跟随重命名），把每个版本的时间、提交说明和关键改动逐条讲给我。",
+  "research.figures.feedbackPromptWithRegions":
+    "图表反馈：{path}。问题：{comment}。标注位置：{regions}（坐标为图内百分比）。请修改对应生成脚本并重跑出图，完成后告诉我。",
+  "research.literature.tab": "文献",
+  "research.literature.count": "{count} 篇文献",
+  "research.literature.rescan": "重新扫描",
+  "research.literature.continue": "继续调研",
+  "research.literature.continuePrompt": "继续本项目的文献调研：读 docs/lit/ 现有笔记，围绕研究缺口补 5 篇近两年工作，按 /lit-review 规范追加。",
+  "research.literature.verify": "核对这条引用",
+  "research.literature.verifyPrompt":
+    "请核对这条引用的真实性与元数据（标题/作者/年份/venue），给出 DOI 或来源链接：{title}",
+  "research.literature.empty":
+    "docs/lit/ 为空——在对话里输入 /lit-review <主题> 开始第一次文献调研",
+  "research.literature.selectHint": "左侧选择一篇文献查看详情",
+  "research.deliverables.tab": "交付",
+  "research.deliverables.count": "{count} 项交付物",
+  "research.deliverables.rescan": "重新扫描",
+  "research.deliverables.runSubmit": "投稿准备",
+  "research.deliverables.runSubmitPrompt": "执行 /submit 投稿准备链：提炼标题摘要、推荐 venue、打包、起草 cover letter。",
+  "research.deliverables.submission": "投稿包",
+  "research.deliverables.reviews": "评审记录",
+  "research.deliverables.lit": "文献调研",
+  "research.deliverables.experiments": "实验证据",
+  "research.deliverables.experimentsCount": "experiments/ 共 {count} 条记录",
+  "research.deliverables.empty":
+    "还没有交付物——评审（/peer-review）、投稿（/submit）、文献调研（/lit-review）的产物会出现在这里",
+  "research.deliverables.pathCopied": "路径已复制",
+  "research.deliverables.pathCopiedHint": "点击复制路径",
 };
 
 export default zhCN;
