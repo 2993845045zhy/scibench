@@ -317,7 +317,7 @@ export function ResearchWorkbench({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-background">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <header className="flex shrink-0 items-center gap-2 border-b border-card-border bg-card px-4 py-2.5">
         {onBack ? (
           <>
             <Button
@@ -326,54 +326,62 @@ export function ResearchWorkbench({
               className="h-7 gap-1.5 px-2 text-ui-xs"
               onClick={onBack}
             >
-              <ArrowLeftIcon className="size-3.5" />
+              <ArrowLeftIcon className="size-3.5" strokeWidth={1.33} />
               {intl.formatMessage({ id: "research.backToChat" })}
             </Button>
-            <div className="h-4 w-px bg-border" aria-hidden />
+            <div className="h-4 w-px bg-card-border" aria-hidden />
           </>
         ) : null}
-        <FlaskConicalIcon className="size-4 text-primary" />
-        <h1 className="text-ui-base font-medium">{intl.formatMessage({ id: "research.title" })}</h1>
+        <FlaskConicalIcon className="size-4 text-primary" strokeWidth={1.33} />
+        <h1 className="text-ui-base font-medium text-foreground">
+          {intl.formatMessage({ id: "research.title" })}
+        </h1>
         <span
-          className="ml-auto max-w-[40%] truncate text-ui-xs text-muted-foreground"
+          className="ml-auto max-w-[40%] truncate text-ui-xs text-foreground-subtlest"
           title={workspacePath}
         >
           {workspacePath}
         </span>
       </header>
       {error ? (
-        <div className="shrink-0 border-b border-border bg-destructive/10 px-4 py-2 text-ui-xs break-all text-destructive">
+        <div className="shrink-0 border-b border-card-border bg-destructive/10 px-4 py-2 text-ui-xs break-all text-destructive">
           {error}
         </div>
       ) : null}
       {toast ? (
-        <div className="shrink-0 border-b border-border bg-primary/10 px-4 py-2 text-ui-xs text-primary">
+        <div className="shrink-0 border-b border-card-border bg-primary/10 px-4 py-2 text-ui-xs text-primary">
           {toast}
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1">
-        <div className="flex w-52 shrink-0 flex-col border-r border-border">
-          <nav className="flex flex-col gap-1 p-2">
+        <div className="flex w-52 shrink-0 flex-col border-r border-card-border bg-sidebar/40">
+          <nav className="flex flex-col gap-0.5 p-2">
             {SECTIONS.map(({ id, icon: SectionIcon, labelId }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setSection(id)}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-2.5 py-2 text-ui-sm transition-colors",
+                  "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-ui-sm transition-colors",
                   section === id
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    ? "bg-hover font-medium text-foreground"
+                    : "text-foreground-subtle hover:bg-hover hover:text-foreground",
                 )}
                 aria-current={section === id ? "page" : undefined}
               >
-                <SectionIcon className="size-4 shrink-0" />
+                <SectionIcon
+                  className={cn(
+                    "size-4 shrink-0",
+                    section === id ? "text-primary" : "text-foreground-subtlest",
+                  )}
+                  strokeWidth={1.33}
+                />
                 {intl.formatMessage({ id: labelId })}
               </button>
             ))}
           </nav>
-          <div className="mx-2 border-t border-border" aria-hidden />
-          <div className="px-2 pt-1.5 pb-1 text-ui-xs font-medium text-muted-foreground">
+          <div className="mx-2 border-t border-card-border" aria-hidden />
+          <div className="px-3 pt-2 pb-1 text-ui-xs font-medium text-foreground-subtlest">
             {intl.formatMessage({ id: "research.files.title" })}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pb-2">
@@ -537,7 +545,7 @@ function FileTree({
       return (
         <div
           key={`${dirPath}:loading`}
-          className="py-0.5 text-ui-xs text-muted-foreground/60"
+          className="py-0.5 text-ui-xs text-foreground-subtlest"
           style={{ paddingLeft: 8 + depth * 12 }}
         >
           …
@@ -559,7 +567,7 @@ function FileTree({
         <div key={entry.path}>
           <button
             type="button"
-            className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-ui-xs text-foreground/90 hover:bg-muted/50"
+            className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-ui-xs text-foreground-subtle hover:bg-hover hover:text-foreground"
             style={{ paddingLeft: 4 + depth * 12 }}
             onClick={() => {
               if (isDir) {
@@ -572,15 +580,16 @@ function FileTree({
           >
             {isDir ? (
               isOpen ? (
-                <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
+                <ChevronDownIcon className="size-3 shrink-0 text-foreground-subtle" />
               ) : (
-                <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground" />
+                <ChevronRightIcon className="size-3 shrink-0 text-foreground-subtle" />
               )
             ) : (
               <span className="w-3 shrink-0" aria-hidden />
             )}
             <Icon
-              className={cn("size-3 shrink-0", isDir ? "text-primary/70" : "text-muted-foreground")}
+              className={cn("size-3 shrink-0", isDir ? "text-primary/70" : "text-foreground-subtlest")}
+            strokeWidth={1.33}
             />
             <span className="truncate">{entry.name}</span>
           </button>
@@ -651,8 +660,8 @@ function OverlayFileViewer({
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-background/95 backdrop-blur-sm">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <FileIcon className="size-3.5 text-muted-foreground" />
+      <div className="flex shrink-0 items-center gap-2 border-b border-card-border bg-card px-3 py-2">
+        <FileIcon className="size-3.5 text-foreground-subtle" />
         <span className="truncate text-ui-xs font-medium" title={path}>
           {name}
         </span>
@@ -672,7 +681,7 @@ function OverlayFileViewer({
         ) : pdfBytes ? (
           <Suspense
             fallback={
-              <div className="p-3 text-ui-xs text-muted-foreground">
+              <div className="p-3 text-ui-xs text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.pdf.loading" })}
               </div>
             }
@@ -682,11 +691,11 @@ function OverlayFileViewer({
         ) : text != null ? (
           <pre className="font-mono text-ui-xs leading-relaxed whitespace-pre-wrap">{text}</pre>
         ) : failed ? (
-          <div className="p-3 text-ui-xs text-muted-foreground">
+          <div className="p-3 text-ui-xs text-foreground-subtlest">
             {intl.formatMessage({ id: "research.viewer.unsupported" })}
           </div>
         ) : (
-          <div className="p-3 text-ui-xs text-muted-foreground">
+          <div className="p-3 text-ui-xs text-foreground-subtlest">
             {intl.formatMessage({ id: "research.loading" })}
           </div>
         )}
@@ -918,7 +927,7 @@ function LatexWorkbench({
   if (discovered && texFiles.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <div className="max-w-md text-center text-ui-sm text-muted-foreground">
+        <div className="max-w-md text-center text-ui-sm leading-5 text-foreground-subtlest">
           {intl.formatMessage({ id: "research.latex.noFiles" })}
         </div>
       </div>
@@ -973,7 +982,7 @@ function LatexWorkbench({
           {intl.formatMessage({ id: "research.latex.compile" })}
         </Button>
         <span
-          className="ml-auto text-ui-xs text-muted-foreground"
+          className="ml-auto text-ui-xs text-foreground-subtle"
           title={synctexRecords ? undefined : intl.formatMessage({ id: "research.synctex.missing" })}
         >
           {synctexRecords
@@ -983,8 +992,8 @@ function LatexWorkbench({
       </div>
       {/* 源码与 PDF 左右并排；SyncTeX 就绪时点行跳页、点页跳行。 */}
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 px-4 pb-4">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
-          <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
+          <div className="border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
             {texRelPath}
           </div>
           <div
@@ -999,12 +1008,12 @@ function LatexWorkbench({
                   key={index}
                   data-line={index + 1}
                   className={cn(
-                    "flex cursor-pointer gap-2 rounded px-1 hover:bg-muted/60",
-                    activeLine === index + 1 && "bg-accent",
+                    "flex cursor-pointer gap-2 rounded px-1 hover:bg-hover",
+                    activeLine === index + 1 && "bg-hover",
                   )}
                   onClick={() => handleLineClick(index + 1)}
                 >
-                  <span className="w-8 shrink-0 select-none text-right text-muted-foreground/50">
+                  <span className="w-8 shrink-0 select-none text-right text-foreground-subtlest">
                     {index + 1}
                   </span>
                   <span className="whitespace-pre-wrap break-all">{line || " "}</span>
@@ -1015,8 +1024,8 @@ function LatexWorkbench({
             )}
           </div>
         </div>
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border">
-          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-ui-xs text-muted-foreground">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
+          <div className="flex items-center gap-2 border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
             <span>
               {pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath?.split("/").pop()}
             </span>
@@ -1024,13 +1033,13 @@ function LatexWorkbench({
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {pdfMissing ? (
-              <div className="p-3 text-ui-xs text-muted-foreground">
+              <div className="p-3 text-ui-xs text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.pdf.missing" })}
               </div>
             ) : pdfSource ? (
               <Suspense
                 fallback={
-                  <div className="p-3 text-ui-xs text-muted-foreground">
+                  <div className="p-3 text-ui-xs text-foreground-subtlest">
                     {intl.formatMessage({ id: "research.pdf.loading" })}
                   </div>
                 }
@@ -1044,7 +1053,7 @@ function LatexWorkbench({
                 />
               </Suspense>
             ) : (
-              <div className="p-3 text-ui-xs text-muted-foreground">
+              <div className="p-3 text-ui-xs text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.loading" })}
               </div>
             )}
@@ -1242,7 +1251,7 @@ function FiguresGallery({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-muted-foreground">
+        <span className="text-ui-xs text-foreground-subtle">
           {intl.formatMessage({ id: "research.figures.count" }, { count: figures.length })}
         </span>
         <Button
@@ -1257,7 +1266,7 @@ function FiguresGallery({
       </div>
       {selected ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
-          <div className="relative min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/20">
+          <div className="relative min-h-0 flex-1 overflow-auto rounded-lg border border-card-border bg-card">
             <div
               className="relative inline-block cursor-crosshair"
               onPointerDown={(event) => {
@@ -1294,7 +1303,7 @@ function FiguresGallery({
                   draggable={false}
                 />
               ) : (
-                <div className="p-3 text-ui-xs text-muted-foreground">{selected.relPath}</div>
+                <div className="p-3 text-ui-xs text-foreground-subtlest">{selected.relPath}</div>
               )}
               {annotations.map((rect, index) => (
                 <div
@@ -1399,7 +1408,7 @@ function FiguresGallery({
               {intl.formatMessage({ id: "research.figures.sendFeedback" })}
             </Button>
           </div>
-          <div className="text-ui-xs text-muted-foreground">
+          <div className="text-ui-xs text-foreground-subtle">
             {intl.formatMessage({ id: "research.figures.annotateHint" })}
           </div>
         </div>
@@ -1407,13 +1416,13 @@ function FiguresGallery({
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
           {grouped.map(([group, items]) => (
             <div key={group} className="mb-5">
-              <div className="mb-2 text-ui-sm font-medium text-muted-foreground">{group}/</div>
+              <div className="mb-2 text-ui-sm font-medium text-foreground-subtle">{group}/</div>
               <div className="grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {items.map((figure) => (
                   <button
                     key={figure.absPath}
                     type="button"
-                    className="flex flex-col overflow-hidden rounded-lg border border-border transition-colors hover:border-primary/50"
+                    className="flex flex-col overflow-hidden rounded-lg border border-card-border bg-card transition-colors hover:border-primary/50"
                     onClick={() => setSelected(figure)}
                   >
                     <div className="flex h-36 items-center justify-center bg-muted/20">
@@ -1424,10 +1433,10 @@ function FiguresGallery({
                           className="max-h-36 max-w-full object-contain"
                         />
                       ) : (
-                        <ImageIcon className="size-6 text-muted-foreground/50" />
+                        <ImageIcon className="size-6 text-foreground-subtlest" />
                       )}
                     </div>
-                    <div className="truncate px-2.5 py-1.5 text-left text-ui-xs text-muted-foreground">
+                    <div className="truncate px-2.5 py-1.5 text-left text-ui-xs text-foreground-subtle">
                       {figure.relPath.split("/").pop()}
                     </div>
                   </button>
@@ -1436,7 +1445,7 @@ function FiguresGallery({
             </div>
           ))}
           {scanned && figures.length === 0 ? (
-            <div className="p-3 text-ui-xs text-muted-foreground">
+            <div className="p-3 text-ui-xs text-foreground-subtlest">
               {intl.formatMessage({ id: "research.figures.empty" })}
             </div>
           ) : null}
@@ -1542,7 +1551,7 @@ function ExperimentsList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-muted-foreground">
+        <span className="text-ui-xs text-foreground-subtle">
           {intl.formatMessage({ id: "research.experiments.count" }, { count: cards.length })}
         </span>
         <Button
@@ -1555,10 +1564,10 @@ function ExperimentsList({
           {intl.formatMessage({ id: "research.experiments.rescan" })}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="min-h-0 flex-1 overflow-auto px-4 pb-6">
+        <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 lg:grid-cols-2">
           {cards.map((card) => (
-            <div key={card.dirName} className="rounded-lg border border-border p-3.5">
+            <div key={card.dirName} className="rounded-[10px] border border-card-border bg-card px-3 py-3">
               <div className="flex items-center gap-2">
                 <span className="truncate text-ui-sm font-medium" title={card.title}>
                   {card.title}
@@ -1572,9 +1581,9 @@ function ExperimentsList({
                   </Badge>
                 ) : null}
               </div>
-              <div className="mt-1 text-ui-xs text-muted-foreground">{card.dirName}</div>
+              <div className="mt-1 text-ui-xs text-foreground-subtle">{card.dirName}</div>
               {card.snippet ? (
-                <div className="mt-1.5 line-clamp-2 text-ui-xs text-muted-foreground/80">
+                <div className="mt-1.5 line-clamp-2 text-ui-xs text-foreground-subtlest">
                   {card.snippet}
                 </div>
               ) : null}
@@ -1582,7 +1591,7 @@ function ExperimentsList({
           ))}
         </div>
         {scanned && cards.length === 0 ? (
-          <div className="p-3 text-ui-xs text-muted-foreground">
+          <div className="p-3 text-ui-xs text-foreground-subtlest">
             {intl.formatMessage({ id: "research.experiments.empty" })}
           </div>
         ) : null}
@@ -1786,7 +1795,7 @@ function LiteratureLibrary({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-muted-foreground">
+        <span className="text-ui-xs text-foreground-subtle">
           {intl.formatMessage({ id: "research.literature.count" }, { count: totalPapers })}
         </span>
         <Button
@@ -1816,7 +1825,7 @@ function LiteratureLibrary({
         <div className="min-h-0 w-1/2 overflow-auto">
           {groups.map((group) => (
             <div key={group.slug} className="mb-4">
-              <div className="mb-1.5 text-ui-sm font-medium text-muted-foreground">
+              <div className="mb-1.5 text-ui-sm font-medium text-foreground-subtle">
                 {group.slug}/ · {group.papers.length}
               </div>
               {group.papers.map((paper) => (
@@ -1824,15 +1833,15 @@ function LiteratureLibrary({
                   key={`${paper.sourceFile}:${paper.title}`}
                   type="button"
                   className={cn(
-                    "mb-1 block w-full rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-border hover:bg-muted/30",
-                    selectedPaper === paper && "border-border bg-accent",
+                    "mb-1 block w-full rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-card-border hover:bg-hover",
+                    selectedPaper === paper && "border-card-border bg-hover",
                   )}
                   onClick={() => setSelectedPaper(paper)}
                 >
                   <div className="truncate text-ui-sm" title={paper.title}>
                     {paper.title}
                   </div>
-                  <div className="truncate text-ui-xs text-muted-foreground">
+                  <div className="truncate text-ui-xs text-foreground-subtle">
                     {[paper.authors, paper.year].filter(Boolean).join(" · ") || paper.slug}
                   </div>
                 </button>
@@ -1840,19 +1849,19 @@ function LiteratureLibrary({
             </div>
           ))}
           {scanned && totalPapers === 0 ? (
-            <div className="p-3 text-ui-xs text-muted-foreground">
+            <div className="p-3 text-ui-xs text-foreground-subtlest">
               {intl.formatMessage({ id: "research.literature.empty" })}
             </div>
           ) : null}
         </div>
-        <div className="min-h-0 w-1/2 overflow-auto rounded-lg border border-border p-3.5">
+        <div className="min-h-0 w-1/2 overflow-auto rounded-[10px] border border-card-border bg-card px-3 py-3">
           {selectedPaper ? (
             <div>
               <div className="text-ui-base font-medium">{selectedPaper.title}</div>
-              <div className="mt-1 text-ui-xs text-muted-foreground">
+              <div className="mt-1 text-ui-xs text-foreground-subtle">
                 {[selectedPaper.authors, selectedPaper.year].filter(Boolean).join(" · ")}
               </div>
-              <div className="mt-1 text-ui-xs text-muted-foreground/70">
+              <div className="mt-1 text-ui-xs text-foreground-subtlest">
                 {selectedPaper.sourceFile}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1943,7 +1952,7 @@ function LiteratureLibrary({
               </div>
             </div>
           ) : (
-            <div className="text-ui-xs text-muted-foreground">
+            <div className="text-ui-xs text-foreground-subtle">
               {intl.formatMessage({ id: "research.literature.selectHint" })}
             </div>
           )}
@@ -2074,7 +2083,7 @@ function DeliverablesCenter({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-muted-foreground">
+        <span className="text-ui-xs text-foreground-subtle">
           {intl.formatMessage({ id: "research.deliverables.count" }, { count: rows.length })}
         </span>
         <Button
@@ -2100,32 +2109,34 @@ function DeliverablesCenter({
           {intl.formatMessage({ id: "research.deliverables.runSubmit" })}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
-        {rows.map((row) => (
-          <button
-            key={row.path}
-            type="button"
-            className="mb-2 flex w-full items-center gap-3 rounded-lg border border-border px-3.5 py-3 text-left transition-colors hover:border-primary/50"
-            onClick={() =>
-              void copyPrompt(
-                row.path,
-                intl.formatMessage({ id: "research.deliverables.pathCopied" }),
-              )
-            }
-            title={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
-          >
-            <PackageIcon className="size-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <div className="truncate text-ui-sm">{row.detail}</div>
-              <div className="truncate text-ui-xs text-muted-foreground">{row.label}</div>
+      <div className="min-h-0 flex-1 overflow-auto px-4 pb-6">
+        <div className="mx-auto w-full max-w-3xl">
+          {rows.map((row) => (
+            <button
+              key={row.path}
+              type="button"
+              className="mb-2 flex w-full items-center gap-3 rounded-[10px] border border-card-border bg-card px-3 py-3 text-left transition-colors hover:border-primary/50"
+              onClick={() =>
+                void copyPrompt(
+                  row.path,
+                  intl.formatMessage({ id: "research.deliverables.pathCopied" }),
+                )
+              }
+              title={intl.formatMessage({ id: "research.deliverables.pathCopiedHint" })}
+            >
+              <PackageIcon className="size-4 shrink-0 text-foreground-subtle" strokeWidth={1.33} />
+              <div className="min-w-0">
+                <div className="truncate text-ui-sm">{row.detail}</div>
+                <div className="truncate text-ui-xs text-foreground-subtle">{row.label}</div>
+              </div>
+            </button>
+          ))}
+          {scanned && rows.length === 0 ? (
+            <div className="p-3 text-ui-xs text-foreground-subtlest">
+              {intl.formatMessage({ id: "research.deliverables.empty" })}
             </div>
-          </button>
-        ))}
-        {scanned && rows.length === 0 ? (
-          <div className="p-3 text-ui-xs text-muted-foreground">
-            {intl.formatMessage({ id: "research.deliverables.empty" })}
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );
