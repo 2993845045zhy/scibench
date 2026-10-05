@@ -62,7 +62,11 @@ pnpm install && pnpm build:bootstrap     # 全量构建（首次）
 
 ```bash
 # ① 桌面版（和官方 ZCode 桌面应用同形态，Electron 窗口）——日常主用
+#    注意两个修复已提交：package.json 补了 version（否则 updater 崩）、
+#    productName 改 SciBench（否则与官方版撞 userData 单实例锁）
 cd ~/zcode-science && pnpm dev:desktop
+# 首次启动窗口标题仍显示 ZCode（页面 title 未改），数据目录 ~/.config/SciBench，
+# 登录态/配置/技能沿用 ~/.zcode（与官方版共用，两者别同时开）
 
 # ② 发行包启动器（已装在 ~/opt/scibench，含 TUI + Web + Agent）
 scibench              # 终端 TUI
