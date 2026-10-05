@@ -303,6 +303,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   handleOpenTreemapping,
   handleOpenWhiteboard,
   handleNavigateToResearchMain,
+  handleOpenResearchPane,
   handleNavigateToTaskMain,
   handleOpenDeveloperTools,
   handleOpenTerminalTab,
@@ -1471,6 +1472,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       onReopenClosedTab={handleReopenClosedSidePaneTab}
       onOpenBrowserTab={handleOpenBrowserTab}
       onOpenWhiteboard={handleOpenWhiteboard}
+      onOpenResearch={handleOpenResearchPane}
       onOpenDeveloperTools={handleOpenDeveloperTools}
       onOpenTerminalTab={handleOpenTerminalTab}
       onOpenReviewTab={handleToggleGit}

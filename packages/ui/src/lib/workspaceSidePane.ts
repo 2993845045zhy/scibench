@@ -66,6 +66,18 @@ export interface WhiteboardSidePaneTab {
   title: string;
 }
 
+/**
+ * 科研面板（停靠形态）：挂在聊天主视图右侧，与对话同时可见。
+ * 与整页 ResearchWorkbench 主视图共用目录约定；单例 id，重复打开只激活。
+ */
+export interface ResearchSidePaneTab {
+  id: string;
+  type: "research";
+  ownerTaskId?: string | null;
+  workspaceKey?: string | null;
+  openedAt?: number;
+}
+
 export interface ModelTrajectorySidePaneTab {
   id: string;
   type: "model-trajectory";
@@ -520,6 +532,7 @@ export type WorkspaceSidePaneTab =
   | CodeViewerSidePaneTab
   | TreemappingSidePaneTab
   | WhiteboardSidePaneTab
+  | ResearchSidePaneTab
   | ModelTrajectorySidePaneTab
   | DeveloperToolsSidePaneTab
   | TerminalSidePaneTab
@@ -668,6 +681,14 @@ function createDeveloperToolsSidePaneTab(): DeveloperToolsSidePaneTab {
   return {
     id: "developer-tools",
     type: "developer-tools",
+    openedAt: Date.now(),
+  };
+}
+
+function createResearchSidePaneTab(): ResearchSidePaneTab {
+  return {
+    id: "research",
+    type: "research",
     openedAt: Date.now(),
   };
 }
@@ -1584,6 +1605,12 @@ export function activateDeveloperToolsSidePane(
   current: WorkspaceSidePaneState | null,
 ): WorkspaceSidePaneState {
   return activateSidePaneTab(current, createDeveloperToolsSidePaneTab());
+}
+
+export function activateResearchSidePane(
+  current: WorkspaceSidePaneState | null,
+): WorkspaceSidePaneState {
+  return activateSidePaneTab(current, createResearchSidePaneTab());
 }
 
 export function openTerminalSidePane(

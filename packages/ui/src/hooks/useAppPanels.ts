@@ -62,6 +62,7 @@ import {
   type OpenScopedSubagentSideTabRequest,
   type OpenBackgroundBashSideTabRequest,
   openBackgroundBashSidePane,
+  activateResearchSidePane,
   type OpenScopedSubagentDirectorySideTabRequest,
   type OpenSelectionSideChatRequest,
   type OpenScopedPlanDetailSideTabRequest,
@@ -774,6 +775,17 @@ export function useAppPanels(options: {
     workspaceAbsPath,
     workspaceIdentity,
   ]);
+
+  const handleOpenResearchPane = useCallback(() => {
+    revealSidePaneForCurrentOwner();
+    commitOpenedSidePaneState((current) => {
+      const next = activateResearchSidePane(current);
+      logger.info(
+        `[App] 打开右侧面板 mode=research-pane workspace=${workspaceAbsPath} tabs=${next.tabs.length}`,
+      );
+      return next;
+    });
+  }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner, workspaceAbsPath]);
 
   const handleOpenDeveloperTools = useCallback(() => {
     revealSidePaneForCurrentOwner();
@@ -1586,6 +1598,7 @@ export function useAppPanels(options: {
     handleOpenGit,
     handleOpenTreemapping,
     handleOpenWhiteboard,
+    handleOpenResearchPane,
     handleOpenDeveloperTools,
     handleOpenTerminalTab,
     handleOpenModelTrajectory,
