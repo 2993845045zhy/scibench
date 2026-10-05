@@ -1598,6 +1598,8 @@ interface LitPaper {
   year: string | null;
   authors: string | null;
   sourceFile: string;
+  /** ref = 文献条目（BibTeX/编号列表）；pdf = 本地 PDF 文件（docs/papers 兜底）。 */
+  kind: "ref" | "pdf";
 }
 
 interface LitGroup {
@@ -1641,6 +1643,8 @@ function parseBibtexEntryFields(body: string): {
 }
 
 const BIBTEX_ENTRY_PATTERN = /@(article|inproceedings|book|incollection|misc|techreport)\s*\{([^,]+),([\s\S]*?)\n\}/g;
+const NUMBERED_REF_PATTERN = /^\s*\[(\d+)\]\s*(.+)$/;
+const YEAR_PATTERN = /\b((?:19|20)\d{2})\b/;
 
 function parseBibtexEntries(content: string, slug: string, sourceFile: string): LitPaper[] {
   const papers: LitPaper[] = [];
@@ -1652,6 +1656,23 @@ function parseBibtexEntries(content: string, slug: string, sourceFile: string): 
       year: fields.year,
       authors: fields.authors,
       sourceFile,
+      kind: "ref",
+    });
+  }
+  // 纯文本编号参考文献（[N] 标题. venue, 年份.）：逐条收录，年份就地提取，不编造其余字段。
+  for (const rawLine of content.split("\n")) {
+    const match = rawLine.match(NUMBERED_REF_PATTERN);
+    if (!match) continue;
+    const body = match[2]!.trim();
+    if (!body) continue;
+    const yearMatch = body.match(YEAR_PATTERN);
+    papers.push({
+      slug,
+      title: body,
+      year: yearMatch ? yearMatch[1]! : null,
+      authors: null,
+      sourceFile,
+      kind: "ref",
     });
   }
   return papers;
@@ -1718,6 +1739,29 @@ function LiteratureLibrary({
           }
         }
         if (papers.length > 0) loaded.push({ slug: entry.name, papers });
+      }
+      // docs/lit/ 没有条目时兜底：docs/papers/ 的本地 PDF 整组列出（文件名即题名）。
+      if (loaded.length === 0) {
+        try {
+          const pdfEntries = await fileService.readdir({
+            path: joinPath(workspacePath, "docs/papers"),
+          });
+          const pdfPapers: LitPaper[] = [];
+          for (const entry of pdfEntries) {
+            if (entry.type !== "file" || fileExtension(entry.name) !== "pdf") continue;
+            pdfPapers.push({
+              slug: intl.formatMessage({ id: "research.literature.localPdfs" }),
+              title: entry.name.replace(/\.pdf$/, ""),
+              year: null,
+              authors: null,
+              sourceFile: entry.path,
+              kind: "pdf",
+            });
+          }
+          if (pdfPapers.length > 0) loaded.push({ slug: pdfPapers[0]!.slug, papers: pdfPapers });
+        } catch {
+          // docs/papers/ 不存在：保持空态。
+        }
       }
       if (disposed) return;
       setGroups(loaded);
@@ -1809,23 +1853,43 @@ function LiteratureLibrary({
                 {selectedPaper.sourceFile}
               </div>
               <div className="mt-3 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-ui-xs"
-                  onClick={() =>
-                    void copyPrompt(
-                      intl.formatMessage(
-                        { id: "research.literature.verifyPrompt" },
-                        { title: selectedPaper.title },
-                      ),
-                      intl.formatMessage({ id: "research.promptCopied" }),
-                    )
-                  }
-                >
-                  <ClipboardCopyIcon className="size-3.5" />
-                  {intl.formatMessage({ id: "research.literature.verify" })}
-                </Button>
+                {selectedPaper.kind === "pdf" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-ui-xs"
+                    onClick={() =>
+                      void copyPrompt(
+                        intl.formatMessage(
+                          { id: "research.literature.readPrompt" },
+                          { path: selectedPaper.sourceFile },
+                        ),
+                        intl.formatMessage({ id: "research.promptCopied" }),
+                      )
+                    }
+                  >
+                    <ClipboardCopyIcon className="size-3.5" />
+                    {intl.formatMessage({ id: "research.literature.read" })}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-ui-xs"
+                    onClick={() =>
+                      void copyPrompt(
+                        intl.formatMessage(
+                          { id: "research.literature.verifyPrompt" },
+                          { title: selectedPaper.title },
+                        ),
+                        intl.formatMessage({ id: "research.promptCopied" }),
+                      )
+                    }
+                  >
+                    <ClipboardCopyIcon className="size-3.5" />
+                    {intl.formatMessage({ id: "research.literature.verify" })}
+                  </Button>
+                )}
               </div>
             </div>
           ) : (

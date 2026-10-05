@@ -6549,7 +6549,11 @@ const zhCN: Record<string, string> = {
   "research.literature.verifyPrompt":
     "请核对这条引用的真实性与元数据（标题/作者/年份/venue），给出 DOI 或来源链接：{title}",
   "research.literature.empty":
-    "docs/lit/ 为空——在对话里输入 /lit-review <主题> 开始第一次文献调研",
+    "docs/lit/ 与 docs/papers/ 都为空——在对话里输入 /lit-review <主题> 开始第一次文献调研",
+  "research.literature.localPdfs": "本地文献 PDF（docs/papers/）",
+  "research.literature.read": "让 agent 精读这篇",
+  "research.literature.readPrompt":
+    "请精读本地 PDF {path}，给我：研究问题/方法/关键指标/结论各一行，再一行说明它与本项目（见 AGENTS.md 研究问题）的关系。",
   "research.literature.selectHint": "左侧选择一篇文献查看详情",
   "research.deliverables.tab": "交付",
   "research.deliverables.count": "{count} 项交付物",

@@ -6873,7 +6873,11 @@ const enUS: Record<string, string> = {
   "research.literature.verifyPrompt":
     "Verify this citation's existence and metadata (title/authors/year/venue) and give the DOI or source link: {title}",
   "research.literature.empty":
-    "docs/lit/ is empty — run /lit-review <topic> in the chat to start the first survey",
+    "Both docs/lit/ and docs/papers/ are empty — run /lit-review <topic> in the chat to start the first survey",
+  "research.literature.localPdfs": "Local PDFs (docs/papers/)",
+  "research.literature.read": "Ask agent to read this",
+  "research.literature.readPrompt":
+    "Read the local PDF {path} closely and give me: problem/method/key metrics/conclusion, one line each, plus one line on its relation to this project (see AGENTS.md).",
   "research.literature.selectHint": "Select a paper on the left to see details",
   "research.deliverables.tab": "Deliverables",
   "research.deliverables.count": "{count} deliverables",
