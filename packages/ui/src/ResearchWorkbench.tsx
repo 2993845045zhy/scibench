@@ -598,6 +598,38 @@ function FiguresGallery({
           break;
         }
       }
+
+      // 标准目录没有图时自适应兜底：docs/ 下名字含 fig 的目录（paper_figs /
+      // cmp_report_figs 等常见学术布局）逐个成组，不需要项目改目录。
+      if (found.length === 0) {
+        try {
+          const docsEntries = await fileService.readdir({
+            path: joinPath(workspacePath, "docs"),
+          });
+          for (const entry of docsEntries) {
+            if (entry.type !== "directory" || !/fig/i.test(entry.name)) continue;
+            let figEntries: FileEntry[];
+            try {
+              figEntries = await fileService.readdir({ path: entry.path });
+            } catch {
+              continue;
+            }
+            for (const figEntry of figEntries) {
+              if (figEntry.type === "file" && IMAGE_EXTENSIONS.has(fileExtension(figEntry.name))) {
+                found.push({
+                  absPath: figEntry.path,
+                  relPath: `docs/${entry.name}/${figEntry.name}`,
+                  group: `docs/${entry.name}`,
+                });
+              }
+            }
+          }
+          if (found.length > 0) setWatchedRoot("docs");
+        } catch {
+          // docs/ 不存在：保持空态。
+        }
+      }
+
       if (disposed) return;
       setFigures(found);
       setScanned(true);
