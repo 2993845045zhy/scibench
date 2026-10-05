@@ -55,15 +55,31 @@ LLM 增强（可选）：clawsgo 的 OpenAI 兼容端点可配 DeepSeek，
 export PATH="$HOME/opt/node24/bin:$HOME/.local/bin:$PATH"
 export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"   # 国内网络需要
 
-pnpm install
-pnpm --filter @zcode/cli... build          # 构建 Agent CLI（含 TUI）
-node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
+pnpm install && pnpm build:bootstrap     # 全量构建（首次）
+```
 
-# 完整发行包（TUI + Web + Agent，zcode --web 起 Web 界面）
-pnpm build:zcode                          # 产物在 dist/zcode/
+### 三种运行形态（都是本地运行，无云依赖）
+
+```bash
+# ① 桌面版（和官方 ZCode 桌面应用同形态，Electron 窗口）——日常主用
+cd ~/zcode-science && pnpm dev:desktop
+
+# ② 发行包启动器（已装在 ~/opt/scibench，含 TUI + Web + Agent）
+scibench              # 终端 TUI
+scibench --web        # 本地 Web 界面（127.0.0.1，浏览器渲染，服务在本机）
+
+# 注意：裸 agent CLI（apps/.../dist/zcode.cjs）不支持 --web 参数，
+# --web 是发行包启动器 bin/zcode.mjs 的参数；scibench 已封装好。
+
+# 完整发行包重打（改代码后更新 ~/opt/scibench）
+node scripts/build-zcode.mjs --skip-build --base-url "http://localhost/zcode/deps/zcode/"
+rm -rf ~/opt/scibench/zcode && mkdir -p ~/opt/scibench
+tar -xzf dist/zcode/releases/3.14.3/zcode-3.14.3.tar.gz -C ~/opt/scibench
 ```
 
 开发提示：`ZCODE_DATA_BASE_DIR=~/ .zcode-dev-home` 隔离开发数据目录，不污染正式配置。
+桌面版与官方 ZCode 共用 ~/.zcode（登录态/技能/插件通用）；两者同时开着可能抢
+插件存储锁（只告警不致命），建议日常用 SciBench 替代官方桌面版。
 
 ## 设计边界
 
