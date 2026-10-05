@@ -392,7 +392,7 @@ export function ResearchWorkbench({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 px-2 text-ui-xs"
+              className="h-7 gap-1.5 px-2 text-ui-sm"
               onClick={onBack}
             >
               <ArrowLeftIcon className="size-3.5" strokeWidth={1.33} />
@@ -406,19 +406,19 @@ export function ResearchWorkbench({
           {intl.formatMessage({ id: "research.title" })}
         </h1>
         <span
-          className="ml-auto max-w-[40%] truncate text-ui-xs text-foreground-subtlest"
+          className="ml-auto max-w-[40%] truncate text-ui-sm text-foreground-subtlest"
           title={workspacePath}
         >
           {workspacePath}
         </span>
       </header>
       {error ? (
-        <div className="shrink-0 border-b border-card-border bg-destructive/10 px-4 py-2 text-ui-xs break-all text-destructive">
+        <div className="shrink-0 border-b border-card-border bg-destructive/10 px-4 py-2 text-ui-sm break-all text-destructive">
           {error}
         </div>
       ) : null}
       {toast ? (
-        <div className="shrink-0 border-b border-card-border bg-primary/10 px-4 py-2 text-ui-xs text-primary">
+        <div className="shrink-0 border-b border-card-border bg-primary/10 px-4 py-2 text-ui-sm text-primary">
           {toast}
         </div>
       ) : null}
@@ -450,7 +450,7 @@ export function ResearchWorkbench({
             ))}
           </nav>
           <div className="mx-2 border-t border-card-border" aria-hidden />
-          <div className="px-3 pt-2 pb-1 text-ui-xs font-medium text-foreground-subtlest">
+          <div className="px-3 pt-2 pb-1 text-ui-sm font-medium text-foreground-subtlest">
             {intl.formatMessage({ id: "research.files.title" })}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pb-2">
@@ -638,7 +638,7 @@ function FileTree({
       return (
         <div
           key={`${dirPath}:loading`}
-          className="py-0.5 text-ui-xs text-foreground-subtlest"
+          className="py-0.5 text-ui-sm text-foreground-subtlest"
           style={{ paddingLeft: 8 + depth * 12 }}
         >
           …
@@ -756,7 +756,7 @@ function OverlayFileViewer({
     <div className="absolute inset-0 z-20 flex flex-col bg-background/95 backdrop-blur-sm">
       <div className="flex shrink-0 items-center gap-2 border-b border-card-border bg-card px-3 py-2">
         <FileIcon className="size-3.5 text-foreground-subtle" />
-        <span className="truncate text-ui-xs font-medium" title={path}>
+        <span className="truncate text-ui-sm font-medium" title={path}>
           {name}
         </span>
         <Button
@@ -775,7 +775,7 @@ function OverlayFileViewer({
         ) : pdfBytes ? (
           <Suspense
             fallback={
-              <div className="p-3 text-ui-xs text-foreground-subtlest">
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.pdf.loading" })}
               </div>
             }
@@ -783,13 +783,13 @@ function OverlayFileViewer({
             <PdfViewer source={pdfBytes} className="h-full" />
           </Suspense>
         ) : text != null ? (
-          <pre className="font-mono text-ui-xs leading-relaxed whitespace-pre-wrap">{text}</pre>
+          <pre className="font-mono text-ui-sm leading-relaxed whitespace-pre-wrap">{text}</pre>
         ) : failed ? (
-          <div className="p-3 text-ui-xs text-foreground-subtlest">
+          <div className="p-3 text-ui-sm text-foreground-subtlest">
             {intl.formatMessage({ id: "research.viewer.unsupported" })}
           </div>
         ) : (
-          <div className="p-3 text-ui-xs text-foreground-subtlest">
+          <div className="p-3 text-ui-sm text-foreground-subtlest">
             {intl.formatMessage({ id: "research.loading" })}
           </div>
         )}
@@ -1042,14 +1042,14 @@ function LatexWorkbench({
         <Select value={texRelPath ?? undefined} onValueChange={(value) => setTexRelPath(value)}>
           <SelectTrigger
             size="lg"
-            className="w-72 text-ui-xs"
+            className="w-72 text-ui-sm"
             aria-label={intl.formatMessage({ id: "research.latex.pathLabel" })}
           >
             <SelectValue placeholder={intl.formatMessage({ id: "research.loading" })} />
           </SelectTrigger>
           <SelectContent>
             {texFiles.map((file) => (
-              <SelectItem key={file} value={file} className="text-ui-xs">
+              <SelectItem key={file} value={file} className="text-ui-sm">
                 {file}
               </SelectItem>
             ))}
@@ -1058,7 +1058,7 @@ function LatexWorkbench({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 shrink-0 px-2.5 text-ui-xs"
+          className="h-8 shrink-0 px-2.5 text-ui-sm"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
@@ -1066,7 +1066,7 @@ function LatexWorkbench({
         </Button>
         <Button
           size="sm"
-          className="h-8 shrink-0 px-2.5 text-ui-xs"
+          className="h-8 shrink-0 px-2.5 text-ui-sm"
           disabled={!texRelPath}
           onClick={() =>
             void copyPrompt(
@@ -1079,7 +1079,7 @@ function LatexWorkbench({
           {intl.formatMessage({ id: "research.latex.compile" })}
         </Button>
         <span
-          className="ml-auto text-ui-xs text-foreground-subtle"
+          className="ml-auto text-ui-sm text-foreground-subtle"
           title={synctexRecords ? undefined : intl.formatMessage({ id: "research.synctex.missing" })}
         >
           {synctexRecords
@@ -1095,7 +1095,7 @@ function LatexWorkbench({
       >
         <ResizablePanel id="research-latex-source" minSize="20%" defaultSize="40%">
           <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
-          <div className="border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
+          <div className="border-b border-card-border px-3 py-1.5 text-ui-sm text-foreground-subtle">
             {texRelPath}
           </div>
           {/* 源码区：ZCode CodeViewer（latex 语法高亮 + 行号）；行点击经委托走 SyncTeX 正向跳转。 */}
@@ -1110,7 +1110,7 @@ function LatexWorkbench({
             }}
           >
             {sourceMissing ? (
-              <div className="p-3 text-ui-xs text-foreground-subtlest">
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.latex.sourceMissing" })}
               </div>
             ) : source != null ? (
@@ -1127,7 +1127,7 @@ function LatexWorkbench({
                 scrollContainerRef={sourceScrollRef}
               />
             ) : (
-              <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+              <div className="flex items-center gap-2 p-3 text-ui-sm text-foreground-subtlest">
                 <Spinner className="size-3.5" />
                 {intl.formatMessage({ id: "research.loading" })}
               </div>
@@ -1138,7 +1138,7 @@ function LatexWorkbench({
         <ResizableHandle />
         <ResizablePanel id="research-latex-pdf" minSize="30%">
           <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-card-border bg-card">
-          <div className="flex items-center gap-2 border-b border-card-border px-3 py-1.5 text-ui-xs text-foreground-subtle">
+          <div className="flex items-center gap-2 border-b border-card-border px-3 py-1.5 text-ui-sm text-foreground-subtle">
             <span>
               {pdfAbsPath === texAbsPath ? `${texRelPath}.pdf` : pdfAbsPath?.split("/").pop()}
             </span>
@@ -1146,13 +1146,13 @@ function LatexWorkbench({
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {pdfMissing ? (
-              <div className="p-3 text-ui-xs text-foreground-subtlest">
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.pdf.missing" })}
               </div>
             ) : pdfSource ? (
               <Suspense
                 fallback={
-                  <div className="p-3 text-ui-xs text-foreground-subtlest">
+                  <div className="p-3 text-ui-sm text-foreground-subtlest">
                     {intl.formatMessage({ id: "research.pdf.loading" })}
                   </div>
                 }
@@ -1166,7 +1166,7 @@ function LatexWorkbench({
                 />
               </Suspense>
             ) : (
-              <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+              <div className="flex items-center gap-2 p-3 text-ui-sm text-foreground-subtlest">
                 <Spinner className="size-3.5" />
                 {intl.formatMessage({ id: "research.loading" })}
               </div>
@@ -1366,13 +1366,13 @@ function FiguresGallery({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-foreground-subtle">
+        <span className="text-ui-sm text-foreground-subtle">
           {intl.formatMessage({ id: "research.figures.count" }, { count: figures.length })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-8 px-2.5 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-sm"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
@@ -1418,7 +1418,7 @@ function FiguresGallery({
                   draggable={false}
                 />
               ) : (
-                <div className="p-3 text-ui-xs text-foreground-subtlest">{selected.relPath}</div>
+                <div className="p-3 text-ui-sm text-foreground-subtlest">{selected.relPath}</div>
               )}
               {annotations.map((rect, index) => (
                 <div
@@ -1436,7 +1436,7 @@ function FiguresGallery({
                     setAnnotations((current) => current.filter((_, i) => i !== index));
                   }}
                 >
-                  <span className="absolute -top-2 -left-2 flex size-4 items-center justify-center rounded-full bg-destructive text-ui-xs font-medium text-white">
+                  <span className="absolute -top-2 -left-2 flex size-4 items-center justify-center rounded-full bg-destructive text-ui-sm font-medium text-white">
                     {index + 1}
                   </span>
                 </div>
@@ -1459,13 +1459,13 @@ function FiguresGallery({
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               placeholder={intl.formatMessage({ id: "research.figures.commentPlaceholder" })}
-              className="h-8 text-ui-xs"
+              className="h-8 text-ui-sm"
             />
             {annotations.length > 0 ? (
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 shrink-0 text-ui-xs"
+                className="h-8 shrink-0 text-ui-sm"
                 onClick={() => setAnnotations([])}
               >
                 <EraserIcon className="size-3.5" strokeWidth={1.33} />
@@ -1475,7 +1475,7 @@ function FiguresGallery({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 shrink-0 text-ui-xs"
+              className="h-8 shrink-0 text-ui-sm"
               onClick={() =>
                 void copyPrompt(
                   intl.formatMessage(
@@ -1492,7 +1492,7 @@ function FiguresGallery({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 shrink-0 text-ui-xs"
+              className="h-8 shrink-0 text-ui-sm"
               onClick={() => {
                 setSelected(null);
                 setAnnotations([]);
@@ -1503,7 +1503,7 @@ function FiguresGallery({
             </Button>
             <Button
               size="sm"
-              className="h-8 shrink-0 text-ui-xs"
+              className="h-8 shrink-0 text-ui-sm"
               disabled={!comment.trim()}
               onClick={() => {
                 const annotationText = describeAnnotations(annotations);
@@ -1523,7 +1523,7 @@ function FiguresGallery({
               {intl.formatMessage({ id: "research.figures.sendFeedback" })}
             </Button>
           </div>
-          <div className="text-ui-xs text-foreground-subtle">
+          <div className="text-ui-sm text-foreground-subtle">
             {intl.formatMessage({ id: "research.figures.annotateHint" })}
           </div>
         </div>
@@ -1531,13 +1531,13 @@ function FiguresGallery({
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
           {grouped.map(([group, items]) => (
             <Collapsible key={group} defaultOpen className="mb-5">
-              <CollapsibleTrigger className="group/collapsible mb-2 flex w-full items-center gap-1.5 text-ui-sm font-medium text-foreground-subtle">
+              <CollapsibleTrigger className="group/collapsible mb-2 flex w-full items-center gap-1.5 text-ui-base font-medium text-foreground-subtle">
                 <ChevronDownIcon
                   className="size-3.5 shrink-0 transition-transform group-data-[state=closed]/collapsible:-rotate-90"
                   strokeWidth={1.33}
                 />
                 <span className="truncate">{group}/</span>
-                <span className="shrink-0 text-ui-xs text-foreground-subtlest">{items.length}</span>
+                <span className="shrink-0 text-ui-sm text-foreground-subtlest">{items.length}</span>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -1559,7 +1559,7 @@ function FiguresGallery({
                         <ImageIcon className="size-6 text-foreground-subtlest" strokeWidth={1.33} />
                       )}
                     </div>
-                    <div className="truncate px-2.5 py-1.5 text-left text-ui-xs text-foreground-subtle">
+                    <div className="truncate px-2.5 py-1.5 text-left text-ui-sm text-foreground-subtle">
                       {figure.relPath.split("/").pop()}
                     </div>
                   </button>
@@ -1569,7 +1569,7 @@ function FiguresGallery({
             </Collapsible>
           ))}
           {scanned && figures.length === 0 ? (
-            <div className="p-3 text-ui-xs text-foreground-subtlest">
+            <div className="p-3 text-ui-sm text-foreground-subtlest">
               {intl.formatMessage({ id: "research.figures.empty" })}
             </div>
           ) : null}
@@ -1675,13 +1675,13 @@ function ExperimentsList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-foreground-subtle">
+        <span className="text-ui-sm text-foreground-subtle">
           {intl.formatMessage({ id: "research.experiments.count" }, { count: cards.length })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-8 px-2.5 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-sm"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
@@ -1693,7 +1693,7 @@ function ExperimentsList({
           {cards.map((card) => (
             <div key={card.dirName} className="rounded-[10px] border border-card-border bg-card px-3 py-3">
               <div className="flex items-center gap-2">
-                <span className="truncate text-ui-sm font-medium" title={card.title}>
+                <span className="truncate text-ui-base font-medium" title={card.title}>
                   {card.title}
                 </span>
                 {card.verdict ? (
@@ -1705,9 +1705,9 @@ function ExperimentsList({
                   </Badge>
                 ) : null}
               </div>
-              <div className="mt-1 text-ui-xs text-foreground-subtle">{card.dirName}</div>
+              <div className="mt-1 text-ui-sm text-foreground-subtle">{card.dirName}</div>
               {card.snippet ? (
-                <div className="mt-1.5 line-clamp-2 text-ui-xs text-foreground-subtlest">
+                <div className="mt-1.5 line-clamp-2 text-ui-sm text-foreground-subtlest">
                   {card.snippet}
                 </div>
               ) : null}
@@ -1715,7 +1715,7 @@ function ExperimentsList({
           ))}
         </div>
         {scanned && cards.length === 0 ? (
-          <div className="p-3 text-ui-xs text-foreground-subtlest">
+          <div className="p-3 text-ui-sm text-foreground-subtlest">
             {intl.formatMessage({ id: "research.experiments.empty" })}
           </div>
         ) : null}
@@ -1942,13 +1942,13 @@ function LiteratureLibrary({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-foreground-subtle">
+        <span className="text-ui-sm text-foreground-subtle">
           {intl.formatMessage({ id: "research.literature.count" }, { count: totalPapers })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-8 px-2.5 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-sm"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
@@ -1956,7 +1956,7 @@ function LiteratureLibrary({
         </Button>
         <Button
           size="sm"
-          className="h-8 px-2.5 text-ui-xs"
+          className="h-8 px-2.5 text-ui-sm"
           onClick={() =>
             void copyPrompt(
               intl.formatMessage({ id: "research.literature.continuePrompt" }),
@@ -1985,10 +1985,10 @@ function LiteratureLibrary({
                   )}
                   onClick={() => setSelectedPaper(paper)}
                 >
-                  <div className="truncate text-ui-sm" title={paper.title}>
+                  <div className="truncate text-ui-base" title={paper.title}>
                     {paper.title}
                   </div>
-                  <div className="truncate text-ui-xs text-foreground-subtle">
+                  <div className="truncate text-ui-sm text-foreground-subtle">
                     {[paper.authors, paper.year].filter(Boolean).join(" · ") || paper.slug}
                   </div>
                 </button>
@@ -1996,7 +1996,7 @@ function LiteratureLibrary({
             </div>
           ))}
           {scanned && totalPapers === 0 ? (
-            <div className="p-3 text-ui-xs text-foreground-subtlest">
+            <div className="p-3 text-ui-sm text-foreground-subtlest">
               {intl.formatMessage({ id: "research.literature.empty" })}
             </div>
           ) : null}
@@ -2008,11 +2008,11 @@ function LiteratureLibrary({
                 <div className="truncate text-ui-base font-medium" title={selectedPaper.title}>
                   {selectedPaper.title}
                 </div>
-                <div className="mt-1 truncate text-ui-xs text-foreground-subtle">
+                <div className="mt-1 truncate text-ui-sm text-foreground-subtle">
                   {[selectedPaper.authors, selectedPaper.year].filter(Boolean).join(" · ") ||
                     selectedPaper.slug}
                 </div>
-                <div className="mt-1 truncate text-ui-xs text-foreground-subtlest">
+                <div className="mt-1 truncate text-ui-sm text-foreground-subtlest">
                   {selectedPaper.sourceFile}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -2020,7 +2020,7 @@ function LiteratureLibrary({
                   <>
                     <Button
                       size="sm"
-                      className="h-7 text-ui-xs"
+                      className="h-7 text-ui-sm"
                       onClick={() =>
                         onOpenViewer(
                           selectedPaper.sourceFile,
@@ -2034,7 +2034,7 @@ function LiteratureLibrary({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-ui-xs"
+                      className="h-7 text-ui-sm"
                       onClick={() =>
                         void copyPrompt(
                           intl.formatMessage(
@@ -2053,7 +2053,7 @@ function LiteratureLibrary({
                   <>
                     <Button
                       size="sm"
-                      className="h-7 text-ui-xs"
+                      className="h-7 text-ui-sm"
                       onClick={() =>
                         onOpenViewer(
                           selectedPaper.sourceFile,
@@ -2067,7 +2067,7 @@ function LiteratureLibrary({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-ui-xs"
+                      className="h-7 text-ui-sm"
                       onClick={() =>
                         void copyPrompt(
                           intl.formatMessage(
@@ -2084,7 +2084,7 @@ function LiteratureLibrary({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-ui-xs"
+                      className="h-7 text-ui-sm"
                       onClick={() =>
                         void copyPrompt(
                           intl.formatMessage(
@@ -2107,7 +2107,7 @@ function LiteratureLibrary({
                   {pdfBytes ? (
                     <Suspense
                       fallback={
-                        <div className="p-3 text-ui-xs text-foreground-subtlest">
+                        <div className="p-3 text-ui-sm text-foreground-subtlest">
                           {intl.formatMessage({ id: "research.pdf.loading" })}
                         </div>
                       }
@@ -2115,7 +2115,7 @@ function LiteratureLibrary({
                       <PdfViewer source={pdfBytes} className="h-full" />
                     </Suspense>
                   ) : (
-                    <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+                    <div className="flex items-center gap-2 p-3 text-ui-sm text-foreground-subtlest">
                       <Spinner className="size-3.5" />
                       {intl.formatMessage({ id: "research.pdf.loading" })}
                     </div>
@@ -2124,7 +2124,7 @@ function LiteratureLibrary({
               ) : null}
             </>
           ) : (
-            <div className="text-ui-xs text-foreground-subtle">
+            <div className="text-ui-sm text-foreground-subtle">
               {intl.formatMessage({ id: "research.literature.selectHint" })}
             </div>
           )}
@@ -2255,13 +2255,13 @@ function DeliverablesCenter({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-foreground-subtle">
+        <span className="text-ui-sm text-foreground-subtle">
           {intl.formatMessage({ id: "research.deliverables.count" }, { count: rows.length })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-8 px-2.5 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-sm"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
@@ -2269,7 +2269,7 @@ function DeliverablesCenter({
         </Button>
         <Button
           size="sm"
-          className="h-8 px-2.5 text-ui-xs"
+          className="h-8 px-2.5 text-ui-sm"
           onClick={() =>
             void copyPrompt(
               intl.formatMessage({ id: "research.deliverables.runSubmitPrompt" }),
@@ -2299,12 +2299,12 @@ function DeliverablesCenter({
               <PackageIcon className="size-4 shrink-0 text-foreground-subtle" strokeWidth={1.33} />
               <div className="min-w-0">
                 <div className="truncate text-ui-sm">{row.detail}</div>
-                <div className="truncate text-ui-xs text-foreground-subtle">{row.label}</div>
+                <div className="truncate text-ui-sm text-foreground-subtle">{row.label}</div>
               </div>
             </button>
           ))}
           {scanned && rows.length === 0 ? (
-            <div className="p-3 text-ui-xs text-foreground-subtlest">
+            <div className="p-3 text-ui-sm text-foreground-subtlest">
               {intl.formatMessage({ id: "research.deliverables.empty" })}
             </div>
           ) : null}
@@ -2350,7 +2350,7 @@ function renderBenchResult(content: string): React.ReactNode {
       if (rows.length > 0) {
         nodes.push(
           <div key={key++} className="my-3 overflow-x-auto rounded-lg border border-card-border">
-            <table className="w-full border-collapse text-ui-xs">
+            <table className="w-full border-collapse text-ui-sm">
               <thead>
                 <tr className="bg-hover/40">
                   {rows[0]!.map((cell, cellIndex) => (
@@ -2411,7 +2411,7 @@ function renderBenchResult(content: string): React.ReactNode {
       index += 1;
     }
     nodes.push(
-      <p key={key++} className="my-1.5 text-ui-xs leading-relaxed text-foreground-subtle">
+      <p key={key++} className="my-1.5 text-ui-sm leading-relaxed text-foreground-subtle">
         {paragraphLines.join(" ")}
       </p>,
     );
@@ -2551,13 +2551,13 @@ function BenchBoard({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 px-4 py-2.5">
-        <span className="text-ui-xs text-foreground-subtle">
+        <span className="text-ui-sm text-foreground-subtle">
           {intl.formatMessage({ id: "research.bench.count" }, { count: benches.length })}
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto h-8 px-2.5 text-ui-xs"
+          className="ml-auto h-8 px-2.5 text-ui-sm"
           onClick={() => setReloadKey((key) => key + 1)}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.33} />
@@ -2574,14 +2574,14 @@ function BenchBoard({
             <Button
               variant="outline"
               size="sm"
-              className="ml-auto h-7 shrink-0 text-ui-xs"
+              className="ml-auto h-7 shrink-0 text-ui-sm"
               onClick={() => setSelected(null)}
             >
               {intl.formatMessage({ id: "research.figures.back" })}
             </Button>
             <Button
               size="sm"
-              className="h-7 shrink-0 text-ui-xs"
+              className="h-7 shrink-0 text-ui-sm"
               onClick={() =>
                 void copyPrompt(
                   runPromptFor(selected),
@@ -2594,19 +2594,19 @@ function BenchBoard({
             </Button>
           </div>
           {selected.summary ? (
-            <div className="mt-1 truncate text-ui-xs text-foreground-subtlest" title={selected.summary}>
+            <div className="mt-1 truncate text-ui-sm text-foreground-subtlest" title={selected.summary}>
               {selected.summary}
             </div>
           ) : null}
           <div className="mt-2 min-h-0 flex-1 overflow-auto rounded-[10px] border border-card-border bg-card px-3.5 py-3">
             {selected.resultRelPath == null ? (
-              <div className="p-3 text-ui-xs text-foreground-subtlest">
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.bench.noResult" })}
               </div>
             ) : resultContent != null ? (
               renderBenchResult(resultContent)
             ) : (
-              <div className="flex items-center gap-2 p-3 text-ui-xs text-foreground-subtlest">
+              <div className="flex items-center gap-2 p-3 text-ui-sm text-foreground-subtlest">
                 <Spinner className="size-3.5" />
                 {intl.formatMessage({ id: "research.loading" })}
               </div>
@@ -2632,9 +2632,9 @@ function BenchBoard({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-ui-sm font-medium">{bench.name}</span>
+                    <span className="truncate text-ui-base font-medium">{bench.name}</span>
                     {bench.resultMtimeMs ? (
-                      <span className="ml-auto shrink-0 text-ui-xs text-foreground-subtlest">
+                      <span className="ml-auto shrink-0 text-ui-sm text-foreground-subtlest">
                         {intl.formatMessage(
                           { id: "research.bench.resultAt" },
                           { time: new Date(bench.resultMtimeMs).toLocaleString() },
@@ -2643,7 +2643,7 @@ function BenchBoard({
                     ) : null}
                   </div>
                   {bench.summary ? (
-                    <div className="mt-0.5 line-clamp-2 text-ui-xs text-foreground-subtle">
+                    <div className="mt-0.5 line-clamp-2 text-ui-sm text-foreground-subtle">
                       {bench.summary}
                     </div>
                   ) : null}
@@ -2651,7 +2651,7 @@ function BenchBoard({
               </button>
             ))}
             {scanned && benches.length === 0 ? (
-              <div className="p-3 text-ui-xs text-foreground-subtlest">
+              <div className="p-3 text-ui-sm text-foreground-subtlest">
                 {intl.formatMessage({ id: "research.bench.empty" })}
               </div>
             ) : null}
