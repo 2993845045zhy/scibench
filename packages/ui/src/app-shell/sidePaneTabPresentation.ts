@@ -8,7 +8,6 @@ export interface SidePaneTabPresentationLabels {
   treemappingTitle: string;
   whiteboardTitle: string;
   researchTitle: string;
-  learningTitle: string;
   modelTrajectoryTitle: string;
   developerToolsTitle: string;
   terminalTitle: string;
@@ -61,7 +60,6 @@ export function getSidePaneTabSearchHint(tab: WorkspaceSidePaneTab): string {
   if (tab.type === "treemapping") return "file activity diff map treemapping";
   if (tab.type === "whiteboard") return `${tab.title} whiteboard canvas draw sketch`;
   if (tab.type === "research") return "research latex pdf figures experiments dock 科研面板";
-  if (tab.type === "learning") return "learn why review flashcard 学习 讲解 复习 学习卡";
   if (tab.type === "model-trajectory") {
     return `${tab.title ?? ""} ${tab.taskId} model trajectory call io`;
   }
@@ -85,7 +83,6 @@ export function getLocalizedSidePaneTabTitle(
       "treemapping.title": labels.treemappingTitle,
       "whiteboard.title": labels.whiteboardTitle,
       "research.title": labels.researchTitle,
-      "learning.title": labels.learningTitle,
       "modelTrajectory.title": labels.modelTrajectoryTitle,
       "developerTools.title": labels.developerToolsTitle,
       "terminal.title": labels.terminalTitle,
@@ -122,7 +119,6 @@ export function getSidePaneTabTypeLabel(
   if (tab.type === "treemapping") return labels.treemappingTitle;
   if (tab.type === "whiteboard") return labels.whiteboardTitle;
   if (tab.type === "research") return labels.researchTitle;
-  if (tab.type === "learning") return labels.learningTitle;
   if (tab.type === "model-trajectory") return labels.modelTrajectoryTitle;
   if (tab.type === "developer-tools") return labels.developerToolsTitle;
   if (tab.type === "terminal" || tab.type === "bash-output") return labels.terminalTitle;

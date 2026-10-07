@@ -13,25 +13,6 @@
 | 2 | `apps/zcode-cli/packages/bootstrap/src/app/official-plugin-definitions.ts` | 注册内置插件 `research-station`（默认启用） |
 | 3 | `packages/shared/src/plugin-marketplaces.ts` | 默认启用名单同步（与 #2 机械对照） |
 | 4 | `apps/zcode-cli/packages/research-station-plugin/`（新增） | 科研扩展层本体：3 技能 + 1 命令 + science MCP 声明 |
-| 5 | `packages/ui/src/learning/` + `store/learningPaneStore.ts`（新增） | 学习面板（见下节）：主对话之外的随问随答通道 |
-
-## 学习面板（LearningPane）
-
-侧面板第二个自定义 tab（第一个是科研工作台），入口三处：侧栏"学习通道"按钮、
-侧面板"+"启动器固定项、面板 tab 搜索。提问在 selection side 子会话回答
-（`createSelectionSideSession` v4 命令，上游现成机制），主对话零打扰；
-快捷条把用户级 `~/.zcode/skills/` 的 learn/why/review 三个 skill 变成一键
-动作（讲解/为什么/复习），并统计 `~/learning/cards/` 学习卡与今日到期数
-（frontmatter `due:` 字段，与 review skill 共用卡库）。
-
-接线文件（升级上游时这些点会有小冲突，均为加一行/加一个分支的机械合并）：
-`lib/workspaceSidePane.ts`（tab 类型）、`app-shell/AnimatedSidePanePanel.tsx`
-（渲染分支 + launcher 条目）、`app-shell/SidePaneTabTrigger.tsx`（图标/标题）、
-`app-shell/sidePaneTabPresentation.ts`、`app-shell/animatedSidePanePanelModel.ts`
-（launcher 恒开项）、`hooks/useAppPanels.ts` + `app-shell/types.ts` +
-`app-shell/WorkspaceShellLayout.tsx` + `WorkspaceSidebar.tsx`（入口接线）、
-`App.tsx`、i18n 双 locale。子会话 id 存 `learningPaneStore`（Zustand，
-应用生命周期内有效，重启回欢迎态，不进持久化 tab 状态）。
 
 ## research-station 插件
 
@@ -108,7 +89,4 @@ tar -xzf dist/zcode/releases/3.14.3/zcode-3.14.3.tar.gz -C ~/opt/scibench
 
 - 通用能力（文献/写作/证据规则）进本插件；项目专属知识进各项目 `.zcode/` 与 `AGENTS.md`
 - 不在仓库内存任何 API key / 账号信息
-- 上游月度更新时可整体 merge；冲突预期在 #2/#3 两处小段、UI 接线点
-  （AnimatedSidePanePanel 渲染分支/launcher、WorkspaceSidebar 按钮、
-  useAppPanels/types/WorkspaceShellLayout 入口链，见"学习面板"小节）与
-  ResearchWorkbench 挂载点，均为加行级机械合并
+- 上游月度更新时可整体 merge；冲突预期只在 #2/#3 两处小段
