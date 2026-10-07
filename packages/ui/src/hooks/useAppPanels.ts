@@ -63,6 +63,7 @@ import {
   type OpenBackgroundBashSideTabRequest,
   openBackgroundBashSidePane,
   activateResearchSidePane,
+  activateLearningSidePane,
   type OpenScopedSubagentDirectorySideTabRequest,
   type OpenSelectionSideChatRequest,
   type OpenScopedPlanDetailSideTabRequest,
@@ -782,6 +783,17 @@ export function useAppPanels(options: {
       const next = activateResearchSidePane(current);
       logger.info(
         `[App] 打开右侧面板 mode=research-pane workspace=${workspaceAbsPath} tabs=${next.tabs.length}`,
+      );
+      return next;
+    });
+  }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner, workspaceAbsPath]);
+
+  const handleOpenLearningPane = useCallback(() => {
+    revealSidePaneForCurrentOwner();
+    commitOpenedSidePaneState((current) => {
+      const next = activateLearningSidePane(current);
+      logger.info(
+        `[App] 打开右侧面板 mode=learning-pane workspace=${workspaceAbsPath} tabs=${next.tabs.length}`,
       );
       return next;
     });
@@ -1599,6 +1611,7 @@ export function useAppPanels(options: {
     handleOpenTreemapping,
     handleOpenWhiteboard,
     handleOpenResearchPane,
+    handleOpenLearningPane,
     handleOpenDeveloperTools,
     handleOpenTerminalTab,
     handleOpenModelTrajectory,

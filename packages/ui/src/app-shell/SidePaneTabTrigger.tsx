@@ -9,6 +9,7 @@ import {
   FileCode2Icon,
   FileDiffIcon,
   FlaskConicalIcon,
+  GraduationCapIcon,
   MapIcon,
   MessageSquareTextIcon,
   ListTreeIcon,
@@ -333,6 +334,10 @@ export function SidePaneTabIcon({ tab }: { tab: WorkspaceSidePaneTab }) {
     return <FlaskConicalIcon className="size-3.5" />;
   }
 
+  if (tab.type === "learning") {
+    return <GraduationCapIcon className="size-3.5" />;
+  }
+
   if (tab.type === "terminal" || tab.type === "bash-output") {
     return <SquareTerminalIcon className="size-3.5" />;
   }
@@ -543,6 +548,10 @@ export function getSidePaneTabTitle(
 
   if (tab.type === "research") {
     return formatMessage({ id: "research.title" });
+  }
+
+  if (tab.type === "learning") {
+    return formatMessage({ id: "learning.title" });
   }
 
   if (tab.type === "terminal" || tab.type === "bash-output") {

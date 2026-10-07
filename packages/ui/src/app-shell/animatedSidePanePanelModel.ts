@@ -2,6 +2,7 @@ const MIN_PREVIEW_PANE_HEAVY_CONTENT_VISIBLE_INLINE_SIZE_PX = 96;
 
 export type OpenTabLauncherItemId =
   | "selection-side-conversation"
+  | "learning"
   | "review"
   | "terminal"
   | "browser"
@@ -23,6 +24,9 @@ export function resolveOpenTabLauncherItemIds({
   if (canOpenSelectionSideConversation) {
     itemIds.push("selection-side-conversation");
   }
+
+  // 学习面板：提问门槛（父会话）在面板内部以欢迎态处理，launcher 恒可开。
+  itemIds.push("learning");
 
   if (!hasReviewTab) {
     itemIds.push("review");
