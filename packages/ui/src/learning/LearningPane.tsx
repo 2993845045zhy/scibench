@@ -3,7 +3,7 @@
 // 独立会话里进行，主对话不受影响；快捷条把用户级 learn/why/review 三个
 // skill 变成一键动作，无需记忆命令。学习卡统计读 ~/learning/cards 的
 // frontmatter（与 ~/.zcode/skills 里的 review skill 共用同一份卡库）。
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpenIcon,
   GraduationCapIcon,
@@ -27,6 +27,8 @@ import type { MessageFileLinkTarget } from "@/components/ai-elements/message.js"
 import { cn } from "@/components/lib/utils.js";
 
 const CARD_HEAD_LIMIT_BYTES = 2048;
+// 统计只需趋势值：极端大的卡库截断扫描，避免一次性发起过多并发读。
+const CARD_SCAN_LIMIT = 200;
 
 interface LearningCardStats {
   total: number;
@@ -45,16 +47,21 @@ function useLearningCardStats(
     refreshKey: number;
   },
 ): LearningCardStats | null {
-  const { fileService } = useWorkspaceServices(
+  const services = useWorkspaceServices(
     params.workspacePath,
     params.remoteSessionId,
     params.workspaceIdentity,
   );
+  // 服务引用走 ref：effect 依赖保持全原始值，services 解析抖动不会重触发读取。
+  const servicesRef = useRef(services);
+  servicesRef.current = services;
   const homePath = useWorkspaceHomePath(params);
+  const refreshKey = params.refreshKey;
   const [stats, setStats] = useState<LearningCardStats | null>(null);
 
   useEffect(() => {
     let disposed = false;
+    const fileService = servicesRef.current?.fileService;
     if (!fileService || !homePath) {
       return () => {
         disposed = true;
@@ -69,7 +76,7 @@ function useLearningCardStats(
         const today = new Date().toISOString().slice(0, 10);
         next.total = cards.length;
         await Promise.all(
-          cards.map(async (card) => {
+          cards.slice(0, CARD_SCAN_LIMIT).map(async (card) => {
             try {
               const frontmatter = await fileService.readTextFile({
                 path: card.path,
@@ -106,7 +113,7 @@ function useLearningCardStats(
     return () => {
       disposed = true;
     };
-  }, [fileService, homePath, params.refreshKey]);
+  }, [homePath, refreshKey]);
 
   return stats;
 }
