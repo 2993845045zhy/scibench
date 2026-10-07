@@ -44,7 +44,6 @@ import { SidePaneTabOverview } from "@/app-shell/SidePaneTabOverview.js";
 import { SubagentSessionSidePane } from "@/app-shell/SubagentSessionSidePane.js";
 import { SubagentDirectorySidePane } from "@/app-shell/SubagentDirectorySidePane.js";
 import { SelectionSideChatPane } from "@/app-shell/SelectionSideChatPane.js";
-import { LearningPane } from "@/learning/LearningPane.js";
 import { BackgroundBashOutputSidePane } from "@/app-shell/BackgroundBashOutputSidePane.js";
 import { PlanDetailSidePane } from "@/app-shell/PlanDetailSidePane.js";
 import { WorkflowRunSidePane } from "@/app-shell/WorkflowRunSidePane.js";
@@ -96,7 +95,6 @@ import {
   FileDiffIcon,
   FlaskConicalIcon,
   GlobeIcon,
-  GraduationCapIcon,
   MessageSquareTextIcon,
   PlusIcon,
   SquareTerminalIcon,
@@ -322,7 +320,6 @@ export function AnimatedSidePanePanel({
   onOpenTerminalTab,
   onOpenReviewTab,
   onOpenSelectionSideConversation,
-  onOpenLearningPane,
   onRevealGitFileInTree,
   onOpenBrowserUrl,
   onOpenCodeViewer,
@@ -396,7 +393,6 @@ export function AnimatedSidePanePanel({
   onOpenTerminalTab: () => void;
   onOpenReviewTab: () => void;
   onOpenSelectionSideConversation: () => void;
-  onOpenLearningPane: () => void;
   onRevealGitFileInTree?: (path: string) => void;
   onOpenBrowserUrl: (url: string) => void;
   onOpenCodeViewer: (source: CodeViewerSource) => void;
@@ -794,12 +790,6 @@ export function AnimatedSidePanePanel({
       icon: MessageSquareTextIcon,
       onOpen: onOpenSelectionSideConversation,
     },
-    learning: {
-      id: "learning",
-      label: intl.formatMessage({ id: "learning.title" }),
-      icon: GraduationCapIcon,
-      onOpen: onOpenLearningPane,
-    },
     review: {
       id: "review",
       label: intl.formatMessage({ id: "sidePane.review" }),
@@ -913,7 +903,6 @@ export function AnimatedSidePanePanel({
         treemappingTitle: intl.formatMessage({ id: "treemapping.title" }),
         whiteboardTitle: intl.formatMessage({ id: "whiteboard.title" }),
         researchTitle: intl.formatMessage({ id: "research.title" }),
-        learningTitle: intl.formatMessage({ id: "learning.title" }),
         modelTrajectoryTitle: intl.formatMessage({
           id: "modelTrajectory.title",
         }),
@@ -1278,17 +1267,6 @@ export function AnimatedSidePanePanel({
                             remoteSessionId={workspaceRemoteSessionId}
                             activeTaskId={activeTaskId}
                             onSelectTask={onSelectTask}
-                          />
-                        ) : tab.type === "learning" ? (
-                          <LearningPane
-                            focused={isVisible && tab.id === visibleActiveTabId}
-                            workspacePath={workspaceAbsPath}
-                            workspaceIdentity={workspaceIdentity}
-                            remoteSessionId={workspaceRemoteSessionId}
-                            activeTaskId={activeTaskId}
-                            onOpenBrowserUrl={onOpenBrowserUrl}
-                            onOpenCodeViewer={onOpenCodeViewer}
-                            onOpenFileLink={onOpenFileLink}
                           />
                         ) : tab.type === "model-trajectory" ? (
                           <ModelTrajectoryPane

@@ -78,19 +78,6 @@ export interface ResearchSidePaneTab {
   openedAt?: number;
 }
 
-/**
- * 学习面板（停靠形态）：主对话之外的"随问随答"通道，提问在 selection side
- * 子会话中回答。单例 id，重复打开只激活；子会话 id 存 learningPaneStore
- * （应用生命周期内有效，重启回欢迎态，不进持久化 tab 状态）。
- */
-export interface LearningSidePaneTab {
-  id: string;
-  type: "learning";
-  ownerTaskId?: string | null;
-  workspaceKey?: string | null;
-  openedAt?: number;
-}
-
 export interface ModelTrajectorySidePaneTab {
   id: string;
   type: "model-trajectory";
@@ -546,7 +533,6 @@ export type WorkspaceSidePaneTab =
   | TreemappingSidePaneTab
   | WhiteboardSidePaneTab
   | ResearchSidePaneTab
-  | LearningSidePaneTab
   | ModelTrajectorySidePaneTab
   | DeveloperToolsSidePaneTab
   | TerminalSidePaneTab
@@ -703,14 +689,6 @@ function createResearchSidePaneTab(): ResearchSidePaneTab {
   return {
     id: "research",
     type: "research",
-    openedAt: Date.now(),
-  };
-}
-
-function createLearningSidePaneTab(): LearningSidePaneTab {
-  return {
-    id: "learning",
-    type: "learning",
     openedAt: Date.now(),
   };
 }
@@ -1633,12 +1611,6 @@ export function activateResearchSidePane(
   current: WorkspaceSidePaneState | null,
 ): WorkspaceSidePaneState {
   return activateSidePaneTab(current, createResearchSidePaneTab());
-}
-
-export function activateLearningSidePane(
-  current: WorkspaceSidePaneState | null,
-): WorkspaceSidePaneState {
-  return activateSidePaneTab(current, createLearningSidePaneTab());
 }
 
 export function openTerminalSidePane(
