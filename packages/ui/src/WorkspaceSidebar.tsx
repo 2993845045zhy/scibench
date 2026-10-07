@@ -16,6 +16,7 @@ import {
   Blocks,
   CalendarClock,
   FlaskConical,
+  GraduationCap,
   Clock3,
   Cloud,
   Folder,
@@ -260,9 +261,11 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onOpenCommandCenter,
   onOpenAutomations,
   onOpenResearch,
+  onOpenLearning,
   onOpenPluginStore,
   automationsActive = false,
   researchActive = false,
+  learningActive = false,
   pluginStoreActive = false,
   onFileTreeOpenChange,
 }: {
@@ -314,9 +317,11 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onOpenCommandCenter: () => void;
   onOpenAutomations?: () => void;
   onOpenResearch?: () => void;
+  onOpenLearning?: () => void;
   onOpenPluginStore?: () => void;
   automationsActive?: boolean;
   researchActive?: boolean;
+  learningActive?: boolean;
   pluginStoreActive?: boolean;
   onFileTreeOpenChange?: (open: boolean) => void;
 }) {
@@ -763,6 +768,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   const handleOpenResearchMain = useCallback(() => {
     onOpenResearch?.();
   }, [onOpenResearch]);
+  const handleOpenLearningMain = useCallback(() => {
+    onOpenLearning?.();
+  }, [onOpenLearning]);
   const handleOpenCodingPlanUpgrade = useCallback(
     (
       providerId: string,
@@ -1353,6 +1361,21 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
             >
               <FlaskConical className="size-4" />
               {intl.formatMessage({ id: "research.title" })}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleOpenLearningMain}
+              data-icon="inline-start"
+              data-testid="learning-pane-sidebar-open"
+              size="lg"
+              aria-pressed={learningActive}
+              className={cn(
+                "w-full justify-start gap-2 text-foreground hover:bg-surface-hover hover:text-foreground",
+                learningActive && "bg-selected text-foreground",
+              )}
+            >
+              <GraduationCap className="size-4" />
+              {intl.formatMessage({ id: "learning.title" })}
             </Button>
             <Button
               variant="ghost"

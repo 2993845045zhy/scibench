@@ -302,6 +302,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   handleOpenTreemapping,
   handleOpenWhiteboard,
   handleOpenResearchPane,
+  handleOpenLearningPane,
   handleOpenDeveloperTools,
   handleOpenTerminalTab,
   handleToggleGit,
@@ -1468,6 +1469,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       onOpenBrowserTab={handleOpenBrowserTab}
       onOpenWhiteboard={handleOpenWhiteboard}
       onOpenResearch={handleOpenResearchPane}
+      onOpenLearningPane={handleOpenLearningPane}
       onOpenDeveloperTools={handleOpenDeveloperTools}
       onOpenTerminalTab={handleOpenTerminalTab}
       onOpenReviewTab={handleToggleGit}
@@ -1608,6 +1610,10 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                     onOpenResearch={handleOpenResearchPane}
                     researchActive={Boolean(
                       sidePaneState?.tabs.some((tab) => tab.type === "research"),
+                    )}
+                    onOpenLearning={handleOpenLearningPane}
+                    learningActive={Boolean(
+                      sidePaneState?.tabs.some((tab) => tab.type === "learning"),
                     )}
                     onOpenPluginStore={handleOpenPluginStore}
                     pluginStoreActive={workspaceMainView === "plugin-store"}

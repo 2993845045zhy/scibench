@@ -1,3 +1,4 @@
+/* oxlint-disable eslint(max-lines) -- 科研工作台 UI 按仓库约定收口在单文件（见 README 改动集中说明）；学习面板已拆到 src/learning/，本文件不再增长。 */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIcon,
@@ -3502,7 +3503,7 @@ function DeliverablesCenter({
           </span>
         </div>
         {isExpandedDir
-          ? dirChildren.map((child, childIndex) => (
+          ? dirChildren.map((child) => (
               <div key={child.path}>
                 <div className="h-px bg-border/50" aria-hidden />
                 <button
