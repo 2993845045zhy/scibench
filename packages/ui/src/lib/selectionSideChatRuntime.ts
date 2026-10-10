@@ -3,7 +3,11 @@ import type { ConversationSelectionReference } from "@/lib/conversationSelection
 const pendingCreations = new Map<string, Promise<string>>();
 const blockedChildSessionIds = new Set<string>();
 const listeners = new Set<() => void>();
-type SelectionSideChatOpener = (reference?: ConversationSelectionReference) => Promise<void>;
+// prompt 非空时 opener 在打开副屏会话的同时自动发出该首条消息（学习"讲解选中"用）。
+type SelectionSideChatOpener = (
+  reference?: ConversationSelectionReference,
+  prompt?: string,
+) => Promise<void>;
 interface SelectionSideChatOpenerEntry {
   focused: boolean;
   referenceBlocked: boolean;
@@ -100,10 +104,11 @@ export function getSelectionSideChatOpenState(key: string): "ready" | "blocked" 
 export function requestSelectionSideChatOpen(
   key: string,
   reference?: ConversationSelectionReference,
+  prompt?: string,
 ): boolean {
   const target = getSelectionSideChatOpener(key);
   if (!target || (reference && target.referenceBlocked)) return false;
-  if (reference) void target.open(reference);
+  if (reference || prompt) void target.open(reference, prompt);
   else void target.open();
   return true;
 }

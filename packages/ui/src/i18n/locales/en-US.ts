@@ -1002,6 +1002,7 @@ const enUS: Record<string, string> = {
   "workflowDirectory.unavailable": "Workflow runs can't be listed for this conversation",
   "chat.selections.addToTask": "Add to chat",
   "chat.selections.askInSideChat": "Add in side chat",
+  "chat.selections.explainSelection": "Explain selection",
   "chat.selections.sideBlocked":
     "Resolve the side conversation request before adding another selection.",
   "chat.selections.count": "{count} conversation selections",
@@ -6898,6 +6899,10 @@ const enUS: Record<string, string> = {
   "research.literature.readPrompt":
     "Read the local PDF {path} closely and give me: problem/method/key metrics/conclusion, one line each, plus one line on its relation to this project (see AGENTS.md).",
   "research.literature.selectHint": "Select a paper on the left to see details",
+  "research.learning.tab": "Learning",
+  "learning.emptyHint":
+    "Select any text you don't understand in a chat or document, click \"Explain selection\", and the explanation appears here (main chat untouched)",
+  "learning.newRound": "New round",
   "research.deliverables.tab": "Deliverables",
   "research.deliverables.count": "{count} deliverables",
   "research.deliverables.rescan": "Rescan",

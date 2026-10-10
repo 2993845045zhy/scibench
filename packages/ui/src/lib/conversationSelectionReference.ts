@@ -267,3 +267,27 @@ export function isConversationSelectionReference(
     ["user", "assistant", "reasoning", "tool"].includes(candidate.contentType ?? "")
   );
 }
+
+/** "讲解选中"首条消息的选区文本上限：太长的选区讲解失焦，提醒选关键句更有效。 */
+const LEARNING_SELECTION_PROMPT_TEXT_LIMIT = 1200;
+
+/**
+ * 学习"讲解选中"的首条消息文案：讲解规范内嵌在提问里（不依赖 skill 是否
+ * 被触发），保证回答短、通俗、贴用户水平；用户追问时再逐步深入。
+ */
+export function buildLearningSelectionPrompt(text: string): string {
+  const trimmed =
+    text.length > LEARNING_SELECTION_PROMPT_TEXT_LIMIT
+      ? `${text.slice(0, LEARNING_SELECTION_PROMPT_TEXT_LIMIT)}…`
+      : text;
+  return [
+    "请讲解下面选中的内容，严格遵守：",
+    "1) 第一句话（30 字以内）说清它是什么；",
+    "2) 再用 2~4 句大白话讲它的工作原理——我是生物医学工程大二学生，懂 Python/PyTorch，在学 ROS 2 和机械臂；不堆术语，必须打比方；",
+    "3) 最后一句说它什么时候用得上；",
+    "4) 全文不超过 150 字，不要标题、不要列表、不要展开细节，我想深入时会追问。",
+    "",
+    "内容：",
+    trimmed,
+  ].join("\n");
+}

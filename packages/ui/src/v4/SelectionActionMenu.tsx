@@ -14,6 +14,7 @@ export function SelectionActionMenu({
   sideDisabledTitle,
   onAddToCurrentTask,
   onAskInSideChat,
+  onExplainSelection,
 }: {
   center: number;
   top: number;
@@ -23,6 +24,8 @@ export function SelectionActionMenu({
   sideDisabledTitle?: string;
   onAddToCurrentTask: () => void;
   onAskInSideChat: () => void;
+  /** "讲解选中"：打开副屏会话并自动发出学习提问；与提问动作同受 side 可用性门禁。 */
+  onExplainSelection?: () => void;
 }) {
   const { intl, locale } = useZCodeIntl();
   const ref = useRef<HTMLDivElement>(null);
@@ -84,6 +87,26 @@ export function SelectionActionMenu({
           >
             {intl.formatMessage({ id: "chat.selections.askInSideChat" })}
           </button>
+          {onExplainSelection ? (
+            <>
+              <div className="w-px shrink-0 bg-border" />
+              <button
+                type="button"
+                data-conversation-selection-action="explain-selection"
+                disabled={sideActionDisabled}
+                title={sideActionDisabled ? sideDisabledTitle : undefined}
+                className={cn(
+                  "min-w-0 px-2.5 py-1.5 hover:bg-menu-hover",
+                  sideActionDisabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
+                )}
+                onClick={() => {
+                  if (!sideActionDisabled) onExplainSelection();
+                }}
+              >
+                {intl.formatMessage({ id: "chat.selections.explainSelection" })}
+              </button>
+            </>
+          ) : null}
         </>
       )}
     </div>,

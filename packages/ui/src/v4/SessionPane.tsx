@@ -277,10 +277,12 @@ import {
   type AppSlashCommand,
 } from "@/slashCommandHelpers.js";
 import {
+  buildLearningSelectionPrompt,
   clearConversationSelectionReferenceScope,
   dispatchConversationSelectionAdd,
   type ConversationSelectionReference,
 } from "@/lib/conversationSelectionReference.js";
+import { useLearningPaneStore } from "@/store/learningPaneStore.js";
 
 export interface SessionPaneProps {
   paneId: string;
@@ -1876,8 +1878,10 @@ export function SessionPane({
     [sessionId, workspaceKey],
   );
   const handleOpenSelectionSideConversation = useCallback(
-    async (reference?: ConversationSelectionReference, forceNew = false) => {
-      if (!sessionId || !selectionSideChatKey || !onOpenSelectionSideChat) return;
+    async (reference?: ConversationSelectionReference, forceNew = false, prompt?: string) => {
+      // prompt 路径（"讲解选中"）把会话送进科研工作台学习栏目，无需副屏宿主回调。
+      if (!sessionId || !selectionSideChatKey) return;
+      if (!prompt && !onOpenSelectionSideChat) return;
       try {
         let targetChildSessionId = reference && !forceNew ? activeSelectionSideChatSessionId : null;
         let replacesChildSessionId: string | undefined;
@@ -1901,13 +1905,20 @@ export function SessionPane({
         }
 
         if (targetChildSessionId) {
-          onOpenSelectionSideChat({
-            workspacePath,
-            ...(workspaceIdentity ? { workspaceIdentity } : {}),
-            ...(remoteSessionId ? { remoteSessionId } : {}),
-            parentSessionId: sessionId,
-            childSessionId: targetChildSessionId,
-          });
+          if (prompt) {
+            // "讲解选中"：复用子会话并导航到科研工作台学习栏目（不开副屏 tab）。
+            useLearningPaneStore
+              .getState()
+              .explainInResearchPane(workspaceKey, targetChildSessionId);
+          } else {
+            onOpenSelectionSideChat?.({
+              workspacePath,
+              ...(workspaceIdentity ? { workspaceIdentity } : {}),
+              ...(remoteSessionId ? { remoteSessionId: remoteSessionId } : {}),
+              parentSessionId: sessionId,
+              childSessionId: targetChildSessionId,
+            });
+          }
           if (reference) {
             dispatchConversationSelectionAdd({
               targetSessionId: targetChildSessionId,
@@ -1915,11 +1926,18 @@ export function SessionPane({
               reference,
             });
           }
+          if (prompt) {
+            await dispatchCommand("sendText", { text: prompt }, targetChildSessionId);
+          }
           return;
         }
 
         const childSessionId = await createSelectionSideChat(selectionSideChatKey, async () => {
-          const ack = await dispatchCommand("createSelectionSideSession", {}, sessionId);
+          const ack = await dispatchCommand(
+            "createSelectionSideSession",
+            prompt ? { firstInput: { text: prompt } } : {},
+            sessionId,
+          );
           if (
             (ack.status !== "accepted" && ack.status !== "duplicate") ||
             ack.result?.type !== "createSelectionSideSession"
@@ -1928,14 +1946,19 @@ export function SessionPane({
           }
           return ack.result.sessionId;
         });
-        onOpenSelectionSideChat({
-          workspacePath,
-          ...(workspaceIdentity ? { workspaceIdentity } : {}),
-          ...(remoteSessionId ? { remoteSessionId } : {}),
-          parentSessionId: sessionId,
-          childSessionId,
-          ...(replacesChildSessionId ? { replacesChildSessionId } : {}),
-        });
+        if (prompt) {
+          // 新建讲解子会话同样送进科研工作台学习栏目。
+          useLearningPaneStore.getState().explainInResearchPane(workspaceKey, childSessionId);
+        } else {
+          onOpenSelectionSideChat?.({
+            workspacePath,
+            ...(workspaceIdentity ? { workspaceIdentity } : {}),
+            ...(remoteSessionId ? { remoteSessionId: remoteSessionId } : {}),
+            parentSessionId: sessionId,
+            childSessionId,
+            ...(replacesChildSessionId ? { replacesChildSessionId } : {}),
+          });
+        }
         if (reference) {
           dispatchConversationSelectionAdd({
             targetSessionId: childSessionId,
@@ -2019,6 +2042,18 @@ export function SessionPane({
     ],
   );
 
+  // 学习"讲解选中"：打开（或复用）副屏会话并自动发出讲解提问，主会话不受影响。
+  const handleExplainSelectionInSideChat = useCallback(
+    (reference: ConversationSelectionReference) => {
+      void handleOpenSelectionSideConversation(
+        reference,
+        false,
+        buildLearningSelectionPrompt(reference.text),
+      );
+    },
+    [handleOpenSelectionSideConversation],
+  );
+
   useEffect(() => {
     if (
       !selectionSideChatKey ||
@@ -2035,7 +2070,7 @@ export function SessionPane({
     return registerSelectionSideChatOpener(
       selectionSideChatKey,
       // 合并时曾丢弃 reference，导致 Markdown 入口只建空白副屏；复用现有引用路由。
-      (reference) => handleOpenSelectionSideConversation(reference, !reference),
+      (reference, prompt) => handleOpenSelectionSideConversation(reference, !reference, prompt),
       focused,
       Boolean(blockingInteractionId) || selectionSideActionBlocked,
     );
@@ -4822,6 +4857,7 @@ export function SessionPane({
                       sideActionDisabled: selectionSideActionBlocked,
                       onAddToCurrentTask: handleAddSelectionToCurrentTask,
                       onAskInSideChat: handleOpenSelectionSideConversation,
+                      onExplainSelection: handleExplainSelectionInSideChat,
                     }
                   : undefined
               }

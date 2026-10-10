@@ -79,6 +79,7 @@ import { logger } from "@/logger.js";
 import { getPathLeaf, joinFilePath, toFileUrl } from "@/lib/path.js";
 import { shouldOpenWorkflowArtifactInBrowser } from "@/lib/workflowArtifactOpen.js";
 import { useWhiteboardStore } from "@/store/whiteboardStore.js";
+import { useLearningPaneStore } from "@/store/learningPaneStore.js";
 import { useModelTrajectoryOpenBridge } from "@/hooks/useModelTrajectoryOpenBridge.js";
 import { useServices } from "@/hooks/useServices.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
@@ -786,6 +787,22 @@ export function useAppPanels(options: {
       return next;
     });
   }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner, workspaceAbsPath]);
+
+  // "讲解选中"发生时自动激活科研工作台（学习栏目由 ResearchWorkbench 内部切换）。
+  const learningSignal = useLearningPaneStore((state) => state.signal);
+  const learningWorkspaceKey = useLearningPaneStore((state) => state.workspaceKey);
+  useEffect(() => {
+    if (!learningSignal) return;
+    if (learningWorkspaceKey === (workspaceIdentity?.trim() || workspaceAbsPath)) {
+      handleOpenResearchPane();
+    }
+  }, [
+    handleOpenResearchPane,
+    learningSignal,
+    learningWorkspaceKey,
+    workspaceAbsPath,
+    workspaceIdentity,
+  ]);
 
   const handleOpenDeveloperTools = useCallback(() => {
     revealSidePaneForCurrentOwner();

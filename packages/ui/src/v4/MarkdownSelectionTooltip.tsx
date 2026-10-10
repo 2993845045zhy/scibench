@@ -11,6 +11,7 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { hasExcludedConversationSelectionEndpoint } from "@/lib/conversationSelectionGuard.js";
 import {
   CONVERSATION_SELECTION_MAX_TEXT_LENGTH,
+  buildLearningSelectionPrompt,
   dispatchConversationSelectionAdd,
   createConversationSelectionReference,
   type MarkdownSelectionTarget,
@@ -104,6 +105,21 @@ export function MarkdownSelectionTooltip({
       onAskInSideChat={() => {
         if (sideKey && requestSelectionSideChatOpen(sideKey, createReference())) close();
       }}
+      onExplainSelection={
+        sideKey
+          ? () => {
+              if (
+                requestSelectionSideChatOpen(
+                  sideKey,
+                  createReference(),
+                  buildLearningSelectionPrompt(state.text),
+                )
+              ) {
+                close();
+              }
+            }
+          : undefined
+      }
     />
   );
 }

@@ -1,3 +1,4 @@
+/* oxlint-disable eslint(max-lines) -- 科研工作台 UI 按仓库约定收口在单文件（见 README 改动集中说明），fork 维护期保持豁免。 */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIcon,
@@ -17,6 +18,7 @@ import {
   FileTextIcon,
   FlaskConicalIcon,
   FolderIcon,
+  GraduationCapIcon,
   HistoryIcon,
   ImageIcon,
   LayoutDashboardIcon,
@@ -68,6 +70,8 @@ import {
   type UseResearchCommandLauncherResult,
 } from "@/research/useResearchCommandLauncher.js";
 import { useActiveTaskPlan } from "@/research/useActiveTaskPlan.js";
+import { LearningPane } from "@/learning/LearningPane.js";
+import { useLearningPaneStore } from "@/store/learningPaneStore.js";
 import { cn } from "@/components/lib/utils.js";
 import type { IDisposable } from "@zcode/rpc";
 import type { FileEntry } from "@zcode/shared";
@@ -141,6 +145,7 @@ type ResearchSection =
   | "bench"
   | "code"
   | "literature"
+  | "learning"
   | "deliverables";
 
 const SECTIONS: Array<{
@@ -156,6 +161,7 @@ const SECTIONS: Array<{
   { id: "bench", icon: ActivityIcon, labelId: "research.bench.tab" },
   { id: "code", icon: CodeIcon, labelId: "research.code.tab" },
   { id: "literature", icon: BookOpenIcon, labelId: "research.literature.tab" },
+  { id: "learning", icon: GraduationCapIcon, labelId: "research.learning.tab" },
   { id: "deliverables", icon: PackageIcon, labelId: "research.deliverables.tab" },
 ];
 
@@ -494,6 +500,16 @@ export function ResearchWorkbench({
     activeTaskId,
   });
   const [section, setSection] = useState<ResearchSection>("overview");
+  // "讲解选中"发生时（learningPaneStore.signal 自增）自动切到学习栏目，
+  // 讲解会话由 LearningPane 从 store 读取渲染；仅响应本 workspace 的讲解。
+  const learningSignal = useLearningPaneStore((state) => state.signal);
+  const learningWorkspaceKey = useLearningPaneStore((state) => state.workspaceKey);
+  useEffect(() => {
+    if (!learningSignal) return;
+    if (learningWorkspaceKey === (workspaceIdentity?.trim() || workspacePath)) {
+      setSection("learning");
+    }
+  }, [learningSignal, learningWorkspaceKey, workspaceIdentity, workspacePath]);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   // 文件树点击 .tex → 切到 LaTeX 页并切换目标（由 LatexWorkbench 消费后清空）。
@@ -682,6 +698,12 @@ export function ResearchWorkbench({
               onError={setError}
               copyPrompt={copyPrompt}
               onOpenViewer={(path, name) => setViewer({ path, name })}
+            />
+          ) : section === "learning" ? (
+            <LearningPane
+              workspacePath={workspacePath}
+              workspaceIdentity={workspaceIdentity}
+              remoteSessionId={remoteSessionId}
             />
           ) : (
             <DeliverablesCenter
@@ -3502,7 +3524,7 @@ function DeliverablesCenter({
           </span>
         </div>
         {isExpandedDir
-          ? dirChildren.map((child, childIndex) => (
+          ? dirChildren.map((child) => (
               <div key={child.path}>
                 <div className="h-px bg-border/50" aria-hidden />
                 <button

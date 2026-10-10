@@ -44,6 +44,7 @@ export function ConversationSelectionTooltip({
   sideActionDisabled,
   onAddToCurrentTask,
   onAskInSideChat,
+  onExplainSelection,
 }: {
   rootRef: RefObject<HTMLDivElement | null>;
   rows: readonly ConversationRow[];
@@ -52,6 +53,7 @@ export function ConversationSelectionTooltip({
   sideActionDisabled?: boolean;
   onAddToCurrentTask: (reference: ConversationSelectionReference) => void;
   onAskInSideChat: (reference: ConversationSelectionReference) => void;
+  onExplainSelection: (reference: ConversationSelectionReference) => void;
 }) {
   const { intl } = useZCodeIntl();
   const rowsRef = useRef(rows);
@@ -137,6 +139,10 @@ export function ConversationSelectionTooltip({
       }}
       onAskInSideChat={() => {
         if (state.reference) onAskInSideChat(state.reference);
+        close();
+      }}
+      onExplainSelection={() => {
+        if (state.reference) onExplainSelection(state.reference);
         close();
       }}
     />

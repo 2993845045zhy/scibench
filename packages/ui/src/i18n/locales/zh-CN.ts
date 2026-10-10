@@ -924,6 +924,7 @@ const zhCN: Record<string, string> = {
   "workflowDirectory.unavailable": "无法列出这条对话的工作流实例",
   "chat.selections.addToTask": "添加到当前任务",
   "chat.selections.askInSideChat": "在辅助对话中提问",
+  "chat.selections.explainSelection": "讲解选中",
   "chat.selections.sideBlocked": "请先处理辅助对话中的待处理请求。",
   "chat.selections.count": "{count} 条对话引用",
   "chat.selections.remove": "移除对话引用",
@@ -6572,6 +6573,9 @@ const zhCN: Record<string, string> = {
   "research.literature.readPrompt":
     "请精读本地 PDF {path}，给我：研究问题/方法/关键指标/结论各一行，再一行说明它与本项目（见 AGENTS.md 研究问题）的关系。",
   "research.literature.selectHint": "左侧选择一篇文献查看详情",
+  "research.learning.tab": "学习",
+  "learning.emptyHint": "在对话或文档里选中不懂的文字，点「讲解选中」，讲解会显示在这里（不打扰主对话）",
+  "learning.newRound": "新开一轮",
   "research.deliverables.tab": "交付",
   "research.deliverables.count": "{count} 项交付物",
   "research.deliverables.rescan": "重新扫描",

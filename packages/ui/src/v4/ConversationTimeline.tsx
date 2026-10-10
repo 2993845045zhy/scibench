@@ -330,6 +330,7 @@ interface ConversationTimelineProps {
     sideActionDisabled?: boolean;
     onAddToCurrentTask: (reference: ConversationSelectionReference) => void;
     onAskInSideChat: (reference: ConversationSelectionReference) => void;
+    onExplainSelection: (reference: ConversationSelectionReference) => void;
   };
   /** 分享选择阶段的本轮勾选状态；仅桌面分享时间线传入。 */
   shareSelection?: {
@@ -1697,6 +1698,7 @@ function ConversationTimelineImpl({
           sideActionDisabled={selectionActions.sideActionDisabled}
           onAddToCurrentTask={selectionActions.onAddToCurrentTask}
           onAskInSideChat={selectionActions.onAskInSideChat}
+          onExplainSelection={selectionActions.onExplainSelection}
         />
       ) : null}
       <ConversationScrollMemoryScopeCapture
