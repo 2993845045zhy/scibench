@@ -13,6 +13,25 @@
 | 2 | `apps/zcode-cli/packages/bootstrap/src/app/official-plugin-definitions.ts` | 注册内置插件 `research-station`（默认启用） |
 | 3 | `packages/shared/src/plugin-marketplaces.ts` | 默认启用名单同步（与 #2 机械对照） |
 | 4 | `apps/zcode-cli/packages/research-station-plugin/`（新增） | 科研扩展层本体：3 技能 + 1 命令 + science MCP 声明 |
+| 5 | `packages/ui/src/learning/` + `store/learningPaneStore.ts`（新增）+ 上游选区链路小改 | 工作台「学习」栏目：划词「讲解选中」在工作台内回答（见下节） |
+
+## 学习栏目（划词讲解）
+
+在对话流或 Markdown 预览里选中文字 → 浮菜单「讲解选中」→ 科研工作台自动
+激活并切到「学习」栏目，讲解会话（上游 SessionPane 原生渲染）在栏目内流式
+回答，可追问、可新开一轮；主对话零打扰（子会话走上游 selection side chat
+机制 `createSelectionSideSession`，prompt 分支见
+`v4/SessionPane.tsx` 的 `handleOpenSelectionSideConversation`）。
+讲解规范内嵌在首条消息（`lib/conversationSelectionReference.ts` 的
+`buildLearningSelectionPrompt`：一句话 + 大白话 + 类比 + 150 字上限），
+配合用户级 `~/.zcode/skills/` 的 learn/why/review 三个 skill 使用。
+
+上游接线点（升级 merge 时的小冲突，均为加行/加分支级）：
+`v4/SelectionActionMenu.tsx`（第三动作按钮）、`v4/ConversationSelectionTooltip.tsx`
+/ `v4/MarkdownSelectionTooltip.tsx`（动作透传）、`v4/ConversationTimeline.tsx`
+（selectionActions 类型）、`lib/selectionSideChatRuntime.ts`（opener 加
+prompt 参数）、`ResearchWorkbench.tsx`（第 10 个栏目 + 信号导航）、
+`hooks/useAppPanels.ts`（讲解信号激活工作台）。
 
 ## research-station 插件
 
@@ -89,4 +108,5 @@ tar -xzf dist/zcode/releases/3.14.3/zcode-3.14.3.tar.gz -C ~/opt/scibench
 
 - 通用能力（文献/写作/证据规则）进本插件；项目专属知识进各项目 `.zcode/` 与 `AGENTS.md`
 - 不在仓库内存任何 API key / 账号信息
-- 上游月度更新时可整体 merge；冲突预期只在 #2/#3 两处小段
+- 上游月度更新时可整体 merge；冲突预期在 #2/#3 两处小段与「学习栏目」的
+  UI 接线点（见上节文件清单），均为加行级机械合并
