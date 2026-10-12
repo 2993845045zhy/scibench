@@ -1003,6 +1003,7 @@ const enUS: Record<string, string> = {
   "chat.selections.addToTask": "Add to chat",
   "chat.selections.askInSideChat": "Add in side chat",
   "chat.selections.explainSelection": "Explain selection",
+  "chat.toolbar.tokenSpeed.title": "Model output speed (tokens/s, latest response)",
   "chat.selections.sideBlocked":
     "Resolve the side conversation request before adding another selection.",
   "chat.selections.count": "{count} conversation selections",

@@ -40,6 +40,7 @@ import type {
 import { ModelConfigSelect, type ModelSelectGroup } from "@/ModelConfigSelect.js";
 import { Button } from "@/components/ui/button.js";
 import { ChatContextUsage } from "@/chat-input-toolbar/display.js";
+import { TokenSpeedBadge } from "@/v4/composer/TokenSpeedBadge.js";
 import {
   hasChatCodingPlanUsageRemaining,
   type ChatCodingPlanUsageRemainingConfig,
@@ -365,6 +366,8 @@ export interface V4ComposerToolbarProps {
 function V4ComposerModelControlsImpl({
   workspacePath,
   workspaceIdentity,
+  sessionId,
+  phase,
   modelSelectionView = null,
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
@@ -1019,6 +1022,12 @@ function V4ComposerModelControlsImpl({
         locale={locale}
         onSendCompressionCommand={onSendCompressionCommand}
         compressionDisabled={disabled || recoveryPending}
+      />
+      <TokenSpeedBadge
+        workspacePath={workspacePath}
+        workspaceIdentity={workspaceIdentity}
+        sessionId={sessionId}
+        phase={phase}
       />
       {modelSelectionState.status === "error" && modelSelectionReload ? (
         <Button

@@ -14,6 +14,7 @@
 | 3 | `packages/shared/src/plugin-marketplaces.ts` | 默认启用名单同步（与 #2 机械对照） |
 | 4 | `apps/zcode-cli/packages/research-station-plugin/`（新增） | 科研扩展层本体：3 技能 + 1 命令 + science MCP 声明 |
 | 5 | `packages/ui/src/learning/` + `store/learningPaneStore.ts`（新增）+ 上游选区链路小改 | 工作台「学习」栏目：划词「讲解选中」在工作台内回答（见下节） |
+| 6 | `packages/ui/src/v4/composer/TokenSpeedBadge.tsx`（新增）+ `V4ComposerToolbar.tsx` 一处渲染 | 输入框工具栏常显 Token 输出速度（tok/s，回答进行中实时刷新） |
 
 ## 学习栏目（划词讲解）
 

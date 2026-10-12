@@ -925,6 +925,7 @@ const zhCN: Record<string, string> = {
   "chat.selections.addToTask": "添加到当前任务",
   "chat.selections.askInSideChat": "在辅助对话中提问",
   "chat.selections.explainSelection": "讲解选中",
+  "chat.toolbar.tokenSpeed.title": "模型回答输出速度（tokens/s，显示最近一次回答）",
   "chat.selections.sideBlocked": "请先处理辅助对话中的待处理请求。",
   "chat.selections.count": "{count} 条对话引用",
   "chat.selections.remove": "移除对话引用",
