@@ -367,7 +367,6 @@ function V4ComposerModelControlsImpl({
   workspacePath,
   workspaceIdentity,
   sessionId,
-  phase,
   modelSelectionView = null,
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
@@ -1027,7 +1026,6 @@ function V4ComposerModelControlsImpl({
         workspacePath={workspacePath}
         workspaceIdentity={workspaceIdentity}
         sessionId={sessionId}
-        phase={phase}
       />
       {modelSelectionState.status === "error" && modelSelectionReload ? (
         <Button
